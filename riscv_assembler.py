@@ -105,6 +105,11 @@ def decode(instr, DEBUG=1):
         'slli':      '001',
         'srli':      '101',
         'srai':      '101',
+        'lb':        '000',
+        'lh':        '001',
+        'lw':        '010',
+        'lbu':       '100',
+        'lhu':       '101'
     }
 
     i_funct7 = {
@@ -163,6 +168,37 @@ def decode(instr, DEBUG=1):
         bin32 = write_reverse_bin(bin32, 12, 14, r_funct3[i_type])
         bin32 = write_reverse_bin(bin32, 25, 31, r_funct7[i_type])
 
+    elif (i_type in ['lb', 'lh', 'lw', 'lbu', 'lhu']):
+        # lw rd, offset(rs1)
+        tmp = i_body.split(',')
+        rd = str(tmp[0]).replace(' ','')
+        tmp = tmp[1].split('(')
+        offset = str(tmp[0]).replace(' ','')
+        rs1 = str(tmp[1]).replace(' ','')
+        rs1 = str(rs1).replace(')','')
+
+        rs1_int = int(rs1[1:])
+        rd_int = int(rd[1:])
+
+        if offset[0] in ['+', '-']:
+            imm_sign = offset[0]
+            imm = int(offset[1:])
+            if imm_sign == '-':
+                imm = twos_complement(imm)
+        else:
+            imm = int(offset)
+
+        imm = bin(int(imm))[2:]
+        pad_imm = pad_binary(imm, 12)[2:]
+        # immediates bits are reversed to select the correct
+        # subset of bits for different sub-fields
+        rpad_imm = pad_imm[::-1]
+
+        bin32 = write_reverse_bin(bin32, 7, 11, bin(rd_int)[2:])
+        bin32 = write_reverse_bin(bin32, 15, 19, bin(rs1_int)[2:])
+        bin32 = write_reverse_bin(bin32, 12, 14, i_funct3[i_type])
+        bin32 = write_reverse_bin(bin32, 20, 31, rpad_imm[::-1])
+
     elif (i_type in instr_t['i']):
         tmp = i_body.split(',')
         
@@ -202,7 +238,6 @@ def decode(instr, DEBUG=1):
 
         rs1_int = int(rs1[1:])
         rs2_int = int(rs2[1:])
-        # imm = bin(int(offset))[2]
 
         imm = bin(int(offset))[2:]
         pad_imm = pad_binary(imm, 12)[2:]
@@ -332,7 +367,7 @@ if __name__ == '__main__':
     code_mem = []
     for line in file_data:
         if (line != '\n') and (line[0] != '#'):
-            print(f'{line[:-1]}: ',end='')
+            print(f'{line[:-1]}:   \t',end='')
             line = str(line).split(':')
             out = decode(line[1], DEBUG=False)
             print(out)
