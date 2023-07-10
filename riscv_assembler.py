@@ -239,7 +239,15 @@ def decode(instr, DEBUG=1):
         rs1_int = int(rs1[1:])
         rs2_int = int(rs2[1:])
 
-        imm = bin(int(offset))[2:]
+        if offset[0] in ['+', '-']:
+            imm_sign = offset[0]
+            imm = int(offset[1:])
+            if imm_sign == '-':
+                imm = twos_complement(imm)
+        else:
+            imm = int(offset)
+
+        imm = bin(int(imm))[2:]
         pad_imm = pad_binary(imm, 12)[2:]
         # immediates bits are reversed to select the correct
         # subset of bits for different sub-fields
@@ -358,7 +366,7 @@ def decode(instr, DEBUG=1):
 # for b/j-type, imm[12:0] = offset ==> user needs to make sure that the offsets are multiples of 2
 if __name__ == '__main__':
     cur_path = os.getcwd()
-    filename = 'individual-instructions/rv32ui-p-lw.d'
+    filename = 'individual-instructions/rv32ui-p-sw.d'
     filepath_read = os.path.join(cur_path, filename)
     
     f_read = open(filepath_read, 'r')
