@@ -202,6 +202,7 @@ class Assembler:
 
         bin32 = cls.write_reverse_bin(bin32, 12, 14, cls.r_funct3[instr_type])
         bin32 = cls.write_reverse_bin(bin32, 25, 31, cls.r_funct7[instr_type])
+        return bin32
 
     @classmethod
     def i_type_load(cls, instr_type, instr_body, bin32):
@@ -235,8 +236,9 @@ class Assembler:
 
         bin32 = cls.write_reverse_bin(bin32, 7, 11, bin(rd_int)[2:])
         bin32 = cls.write_reverse_bin(bin32, 15, 19, bin(rs1_int)[2:])
-        bin32 = cls.write_reverse_bin(bin32, 12, 14, i_funct3[instr_type])
+        bin32 = cls.write_reverse_bin(bin32, 12, 14, cls.i_funct3[instr_type])
         bin32 = cls.write_reverse_bin(bin32, 20, 31, rpad_imm[::-1])
+        return bin32
 
     # counter read instruction
     @classmethod
@@ -263,6 +265,7 @@ class Assembler:
         bin32 = cls.write_reverse_bin(bin32, 15, 19, bin(rs1_int)[2:])
         bin32 = cls.write_reverse_bin(bin32, 12, 14, cls.i_funct3[instr_type])
         bin32 = cls.write_reverse_bin(bin32, 20, 31, rpad_imm[::-1])
+        return bin32
 
     # counter write instruction
     @classmethod
@@ -290,6 +293,7 @@ class Assembler:
         bin32 = cls.write_reverse_bin(bin32, 12, 14, cls.i_funct3[instr_type])
         bin32 = cls.write_reverse_bin(bin32, 7, 11, rpad_imm[0:5][::-1])
         bin32 = cls.write_reverse_bin(bin32, 25, 31, rpad_imm[5:12][::-1])
+        return bin32
 
     # counter wfx instruction
     @classmethod
@@ -310,9 +314,9 @@ class Assembler:
         bin32 = cls.write_reverse_bin(bin32, 7, 11, bin(rd_int)[2:])
         bin32 = cls.write_reverse_bin(bin32, 15, 19, bin(rs1_int)[2:])
         bin32 = cls.write_reverse_bin(bin32, 20, 24, bin(rs2_int)[2:])
-
         bin32 = cls.write_reverse_bin(bin32, 12, 14, cls.r_funct3[instr_type])
         bin32 = cls.write_reverse_bin(bin32, 25, 31, cls.r_funct7[instr_type])
+        return bin32
 
     # `jalr`, `addi`, `slti`, `sltiu`, `ori`, `andi`, `slli`, `srli`, `srai`.
     @classmethod
@@ -343,6 +347,7 @@ class Assembler:
                     imm  = cls.twos_complement(imm)
             imm_int = int(imm)
             bin32   = cls.write_reverse_bin(bin32, 20, 31, bin(imm_int)[2:])
+        return bin32
 
     @classmethod
     def s_type(cls, instr_type, instr_body, bin32):
@@ -381,6 +386,7 @@ class Assembler:
 
         if cls.DEBUG:
             print(f"rs1: {rs1} :: rs2: {rs2} :: offset: {offset} :: imm'b: {pad_imm} ({len(pad_imm)}) :: rev_imm'b: {rpad_imm}")
+        return bin32
 
     @classmethod
     def b_type(cls, instr_type, instr_body, bin32):
@@ -417,6 +423,7 @@ class Assembler:
         bin32 = cls.write_reverse_bin(bin32, 8, 11, rpad_imm[1:5][::-1])
         bin32 = cls.write_reverse_bin(bin32, 25, 30, rpad_imm[5:11][::-1])
         bin32 = cls.write_reverse_bin(bin32, 31, 31, rpad_imm[12])
+        return bin32
 
     @classmethod
     def u_type(cls, instr_type, instr_body, bin32):
@@ -445,6 +452,7 @@ class Assembler:
 
         if cls.DEBUG:
             print(f"rd: {rd} :: offset: {offset} :: imm'b: {pad_imm} ({len(pad_imm)}) :: rev_imm'b: {rpad_imm}")
+        return bin32
 
     @classmethod
     def j_type(cls, instr_type, instr_body, bin32):
@@ -476,6 +484,7 @@ class Assembler:
 
         if cls.DEBUG:
             print(f"rd: {rd} :: offset: {offset} :: imm'b: {pad_imm} ({len(pad_imm)}) :: rev_imm'b: {rpad_imm}")
+        return bin32
 
     @classmethod
     def assemble(cls, instr):
@@ -491,34 +500,34 @@ class Assembler:
 
         # r-type instructions
         if (instr_type in cls.instr_t['r']):
-            cls.r_type(instr_type, instr_body, bin32)
+            bin32 = cls.r_type(instr_type, instr_body, bin32)
         # load instructions are decoded separately
         elif (instr_type in ['lb', 'lh', 'lw', 'lbu', 'lhu']):
-            cls.i_type_load(instr_type, instr_body, bin32)
+            bin32 = cls.i_type_load(instr_type, instr_body, bin32)
         # counter read instruction
         elif (instr_type in ['cnt.rd']):
-            cls.i_type_cnt_rd(instr_type, instr_body, bin32)
+            bin32 = cls.i_type_cnt_rd(instr_type, instr_body, bin32)
         # counter write instructionQ
         elif (instr_type in ['cnt.wr']):
-            cls.i_type_cnt_wr(instr_type, instr_body, bin32)
+            bin32 = cls.i_type_cnt_wr(instr_type, instr_body, bin32)
         # counter wfp instruction
         elif (instr_type in ['cnt.wfp', 'cnt.wfo']):
-            cls.i_type_cnt_wfx(instr_type, instr_body, bin32)
+            bin32 = cls.i_type_cnt_wfx(instr_type, instr_body, bin32)
         # all i-type instructions except loads
         elif (instr_type in cls.instr_t['i']):
-            cls.i_type_all_else(instr_type, instr_body, bin32)
+            bin32 = cls.i_type_all_else(instr_type, instr_body, bin32)
         # s-type (store) instructions
         elif (instr_type in cls.instr_t['s']):
-            cls.s_type(instr_type, instr_body, bin32)
+            bin32 = cls.s_type(instr_type, instr_body, bin32)
         # b-type (branch) instructions
         elif (instr_type in cls.instr_t['b']):
-            cls.b_type(instr_type, instr_body, bin32)
+            bin32 = cls.b_type(instr_type, instr_body, bin32)
         # u-type instructions
         elif (instr_type in cls.instr_t['u']):
-            cls.u_type(instr_type, instr_body, bin32)
+            bin32 = cls.u_type(instr_type, instr_body, bin32)
         # j-type instructions
         elif (instr_type in cls.instr_t['j']):
-            cls.j_type(instr_type, instr_body, bin32)
+            bin32 = cls.j_type(instr_type, instr_body, bin32)
 
         hex4 = hex(int(bin32, 2))
         return hex4
