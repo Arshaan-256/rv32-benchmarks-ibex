@@ -49,7 +49,7 @@
 80000014:       lw x4,0(x6)
 80000018:       lw x3,4(x6)
 # If `x3 <= x4`, skip swapping. Go to <bubble_sort+0x2c>.
-8000001c:       bge x3,x4,16 
+8000001c:       bgeu x3,x4,16 
 80000020:       sw x3,0(x6)
 80000024:       sw x4,4(x6)
 # Update swapped variable if swapping occured.
