@@ -9,7 +9,7 @@
 
 # <start>
 # Send a halt request to core 0.
-80000000:       addi x1,x0,1
+80000000:       addi x1,x0,4
 # Write wait time in `x6`.
 80000004:       addi x6,x0,20
 # Write Halt address in `x2`.
@@ -40,6 +40,7 @@
 # Core loop variable: Resume all CVA6s.
 80000038:       sw x4,8(x2)
 # Increment by 1 to select the next hart. 
+80000014:       addi x4,x4,1
 80000040:       addi x5,x5,1
 # If not all cores have resumed,
 # then go to <start+0xc>.
