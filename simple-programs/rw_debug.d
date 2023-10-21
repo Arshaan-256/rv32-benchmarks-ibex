@@ -6,6 +6,9 @@
 # x5 - Core loop variable.
 # x6 - Wait loop target.
 # x7 - Wait loop variable.
+# Note: `x4` and `x5` are storing the same value(hard count), so I can technically remove one of them
+#       but if later, the debug specification changes then I would need a new variable. Hence, I left
+#       one of them (guess which one?) as a placeholder.
 
 # <start>
 # Send a halt request to core 0.
