@@ -1,7 +1,7 @@
 # Write to the debug mode using PMU core.
 # x1 - Number of cores in the module.
-# x2 - Halt address in Debug Module, 0x100. 
-#      Resume address in Debug Module, 0x108.
+# x2 - Halt address in Debug Module, 0x200. 
+#      Resume address in Debug Module, 0x208.
 # x4 - Value written to the Debug Module.
 # x5 - Core loop variable.
 # x6 - Wait loop target.
@@ -11,7 +11,7 @@
 #       one of them (guess which one?) as a placeholder.
 
 # <start>
-# Send a halt request to core 0.
+# Set up number of counters in `x1`.
 80000000:       addi x1,x0,4
 # Write wait time in `x6`.
 80000004:       addi x6,x0,20
@@ -45,7 +45,7 @@
 # Increment by 1 to select the next hart. 
 80000014:       addi x4,x4,1
 80000040:       addi x5,x5,1
-# If not all cores have resumed,
+# If all cores have not yet resumed,
 # then go to <start+0xc>.
 80000044:       bne x5,x1,-12
 # Program ends.
