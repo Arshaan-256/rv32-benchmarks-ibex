@@ -39,6 +39,9 @@ class Assembler:
         'sra':      '0110011',
         'or':       '0110011',
         'and':      '0110011',
+        # multiply
+        'mul':      '0110011',
+        # counter-operations
         'cnt.rd':   '0000111',
         'cnt.wr':   '0000111',
         'cnt.wfp':  '0000111',
@@ -56,6 +59,9 @@ class Assembler:
         'sra':      '101',
         'or':       '110',
         'and':      '111',
+        # mulitply
+        'mul':      '000',
+        # counter-operations
         'cnt.wfp':  '010',
         'cnt.wfo':  '010'
     }
@@ -71,6 +77,9 @@ class Assembler:
         'sra':      '0100000',
         'or':       '0000000',
         'and':      '0000000',
+        # mulitply
+        'mul':      '0000001',
+        # counter-operations
         'cnt.wfp':  '0000000',
         'cnt.wfo':  '0000001'
     }
@@ -116,7 +125,7 @@ class Assembler:
     }
 
     instr_t = {
-        'r': ['add', 'sub', 'sll', 'slt', 'sltu', 'xor', 'srl', 'sra', 'or', 'and'],
+        'r': ['add', 'sub', 'sll', 'slt', 'sltu', 'xor', 'srl', 'sra', 'or', 'and', 'mul'],
         'i': ['addi', 'slti', 'sltiu', 'xori', 'ori', 'andi', 'slli', 'srli', 'srai', 
               'lb', 'lh', 'lw', 'lbu', 'lhu', 'jalr', 'cnt.rd', 'cnt.wr'],
         's': ['sb', 'sh', 'sw'],
