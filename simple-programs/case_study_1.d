@@ -169,7 +169,7 @@
 # If 1, go to Resume Function.
 000000c4: xori x18,x17,1
 000000c8: and x22,x21,x18
-000000cc: beq x22,x1,44
+000000cc: beq x22,x1,56
 #
 # Halt core = Regulate & !CoreHalted & (acceptable-delay < WC-delay)
 # x22       = x9       & !x21        & x17   
@@ -194,9 +194,9 @@
 # Halt Function
 # *************
 # 00000000: sw x2,0(x29)
-000000ec: lw x6,24(x30)
-000000f0: or x6,x19,x6
-000000f4: sw x6,24(x30)
+000000ec: add x0,x0,x0
+000000f0: add x0,x0,x0
+000000f4: sw 20,24(x30)
 000000f8: add x0,x0,x0
 000000fc: or x20,x20,x19
 # Go to Update Function. (000000e0)
@@ -205,8 +205,8 @@
 # Resume Function
 # ***************
 # 00000000: sw x2,8(x29)
-00000104: add x0,x0,x0
-00000108: xori x19,x19,-1
-0000010c: and x20,x20,x19
+00000104: xori x19,x19,-1
+00000108: and x20,x20,x19
+0000010c: sw x20,24(x30)
 # Go to Update Function. (000000e0)
 00000110: beq x0,x0,-48
