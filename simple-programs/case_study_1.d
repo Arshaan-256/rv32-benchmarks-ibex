@@ -74,7 +74,7 @@
 00000008: addi x30,x30,0
 # Load Debug Module base address into x30.
 0000000c: lui x29,0
-00000010: addi x29,x29,5120
+00000010: addi x29,x29,512
 # Store x1 = 1.
 00000014: addi x1,x0,1
 # x28 is the acceptable delay allowed per request per core (delta).
