@@ -184,7 +184,7 @@
 # Update: Loop Variable and run next epoch
 # ****************************************
 # If x2 < x31: go to InnerLoop. (00000068)
-000000e0: blt x2,x31,-116
+000000e0: blt x2,x31,-120
 # Go to OuterLoop. (00000030)
 # This is reset by CVA6.
 000000e4: sw x1,28(x30)
@@ -199,8 +199,8 @@
 000000f4: sw x6,24(x30)
 000000f8: add x0,x0,x0
 000000fc: or x20,x20,x19
-# Go to Update Function. (000000dc)
-00000100: beq x0,x0,-36
+# Go to Update Function. (000000e0)
+00000100: beq x0,x0,-32
 # ***************
 # Resume Function
 # ***************
@@ -208,5 +208,5 @@
 00000104: add x0,x0,x0
 00000108: xori x19,x19,-1
 0000010c: and x20,x20,x19
-# Go to Update Function. (000000dc)
-00000110: beq x0,x0,-52
+# Go to Update Function. (000000e0)
+00000110: beq x0,x0,-48
