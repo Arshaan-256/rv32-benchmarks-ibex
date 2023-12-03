@@ -172,7 +172,7 @@
 # Halt core = Regulate & !CoreHalted & (acceptable-delay < WC-delay)
 # x22       = x9       & !x21        & x17   
 # x21[0] = !x21[0]
-# If 1, go to Halt Function.
+# If 1, go to Halt Function. (000000ec)
 000000cc: xori x21,x21,1
 000000d0: and x22,x9,x21
 000000d4: and x22,x22,x17
@@ -181,7 +181,7 @@
 # ****************************************
 # Update: Loop Variable and run next epoch
 # ****************************************
-# If x2 < x31: go to InnerLoop.
+# If x2 < x31: go to InnerLoop. (00000068)
 000000dc: blt x2,x31,-116
 000000e0: sw x1,24(x30)
 # Go to OuterLoop. (00000030)
