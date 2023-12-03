@@ -6,7 +6,7 @@ from assembler import Assembler
 if __name__ == '__main__':
     cur_path = os.getcwd()
 #    filename = 'individual-instructions/ibex-cnt.wfo.d'
-    filename = 'individual-instructions/ibex-cnt.wfo.d'
+    filename = 'simple-programs/case_study_1.d'
 
     filepath_read = os.path.join(cur_path, filename)
     
@@ -24,6 +24,10 @@ if __name__ == '__main__':
 
             code_mem.append(out)
             map_mem.append(s)
+        else:
+            line = line[:-1]
+            print(line)
+            map_mem.append(line)
 
     # Save binary encoding
     filename_write = f'{filename[:-1]}x'
@@ -45,4 +49,4 @@ if __name__ == '__main__':
     for idx in range(len(map_mem)):
         f_write.write(f'{map_mem[idx]}')
         if idx != len(map_mem)-1:
-            f_write.write(',\n')
+            f_write.write('\n')
