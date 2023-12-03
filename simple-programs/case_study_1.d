@@ -152,6 +152,7 @@
 #
 # Calculate acceptable delay
 000000b0: mul x16,x27,x4
+# x17 = 1 if x16 < x15 (acceptable delay < WC-delay)
 000000b4: sltu x17,x16,x15 
 #
 # Mask = 1 << Core Number# x6  - 
@@ -163,29 +164,29 @@
 # CoreHalted = (BitVector & Mask) >> Core Number
 000000c0: srl x21,x21,x2
 #
-# Resume core = CoreHalted & (acceptable-delay < WC-delay)
-# x22         = x21        & x17
+# Resume core = CoreHalted & (WC-delay =< acceptable-delay)
+# x22         = x21        & x18 (=!x17)
 # If 1, go to Resume Function.
-000000c4: and x22,x21,x17
-000000c8: beq x22,x1,44
+000000c4: xori x18,x17,1
+000000c8: and x22,x21,x18
+000000cc: beq x22,x1,44
 #
 # Halt core = Regulate & !CoreHalted & (acceptable-delay < WC-delay)
 # x22       = x9       & !x21        & x17   
 # x21[0] = !x21[0]
 # If 1, go to Halt Function. (000000ec)
-000000cc: xori x21,x21,1
-000000d0: and x22,x9,x21
-000000d4: and x22,x22,x17
-000000d8: beq x22,x1,20
+000000d0: xori x21,x21,1
+000000d4: and x22,x9,x21
+000000d8: and x22,x22,x17
+000000dc: beq x22,x1,16
 #
 # ****************************************
 # Update: Loop Variable and run next epoch
 # ****************************************
 # If x2 < x31: go to InnerLoop. (00000068)
-000000dc: blt x2,x31,-116
-000000e0: add x0,x0,x0
+000000e0: blt x2,x31,-116
 # Go to OuterLoop. (00000030)
-# This is reset by CVA6. 
+# This is reset by CVA6.
 000000e4: sw x1,28(x30)
 000000e8: beq x0,x0,-184
 #
