@@ -74,7 +74,7 @@
 00000008: addi x30,x30,0
 # Load Debug Module base address into x30.
 0000000c: lui x29,0
-00000010: addi x29,x29,512
+00000010: addi x29,x29,5120
 # Store x1 = 1.
 00000014: addi x1,x0,1
 # x28 is the acceptable delay allowed per request per core (delta).
@@ -172,7 +172,7 @@
 # Halt core = Regulate & !CoreHalted & (acceptable-delay < WC-delay)
 # x22       = x9       & !x21        & x17   
 # x21[0] = !x21[0]
-# If 1, go to Halt Function. (000000ec)
+# If 1, go to Halt Function.
 000000cc: xori x21,x21,1
 000000d0: and x22,x9,x21
 000000d4: and x22,x22,x17
@@ -181,11 +181,11 @@
 # ****************************************
 # Update: Loop Variable and run next epoch
 # ****************************************
-# If x2 < x31: go to InnerLoop. (00000068)
+# If x2 < x31: go to InnerLoop.
 000000dc: blt x2,x31,-116
 000000e0: sw x1,24(x30)
-# Go to OuterLoop (00000030).
-# This is reset by CVA6.
+# Go to OuterLoop. (00000030)
+# This is reset by CVA6. 
 000000e4: sw x1,28(x30)
 000000e8: beq x0,x0,-184
 #
