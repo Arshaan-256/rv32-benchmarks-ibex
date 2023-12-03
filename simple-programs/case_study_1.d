@@ -139,19 +139,19 @@
 #
 # Calculate worst-case delay caused.
 # x15 = x10 * x23
-00000094: mulu x15,x10,x23
+00000094: mul x15,x10,x23
 # x14 = x11 * x24, x15 = x15 + x14
-00000098: mulu x14,x11,x24
+00000098: mul x14,x11,x24
 0000009c: add x15,x15,x14
 # x14 = x12 * x25, x15 = x15 + x14
-000000a0: mulu x14,x12,x25
+000000a0: mul x14,x12,x25
 000000a4: add x15,x15,x14
 # x14 = x13 * x26, x15 = x15 + x14
-000000a8: mulu x14,x13,x26
+000000a8: mul x14,x13,x26
 000000ac: add x15,x15,x14
 #
 # Calculate acceptable delay
-000000b0: mulu x16,x27,x4
+000000b0: mul x16,x27,x4
 000000b4: sltu x17,x16,x15 
 #
 # Mask = 1 << Core Number# x6  - 
