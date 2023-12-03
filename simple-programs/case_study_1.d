@@ -183,7 +183,7 @@
 # ****************************************
 # If x2 < x31: go to InnerLoop. (00000068)
 000000dc: blt x2,x31,-116
-000000e0: sw x1,24(x30)
+000000e0: add x0,x0,x0
 # Go to OuterLoop. (00000030)
 # This is reset by CVA6. 
 000000e4: sw x1,28(x30)
