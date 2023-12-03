@@ -176,7 +176,7 @@
 000000cc: xori x21,x21,1
 000000d0: and x22,x9,x21
 000000d4: and x22,x22,x17
-000000d8: beq x22,x1,16
+000000d8: beq x22,x1,20
 #
 # ****************************************
 # Update: Loop Variable and run next epoch
