@@ -425,7 +425,11 @@ class Assembler:
             # Remove $LABEL : 0x00000000
             target_addr = sym_table[offset][2:]
             offset = int(target_addr,16) - int(addr[2:],16)
-            imm = int(offset)
+            if offset < 0:
+                imm = cls.twos_complement(offset*-1)
+                print(f"ok {imm}")
+            else:
+                imm = int(offset)
         # If offset sign is specified as `+34` OR `-21`.
         elif offset[0] in ['+', '-']:
             imm_sign = offset[0]
