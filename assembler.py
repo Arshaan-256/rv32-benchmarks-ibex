@@ -411,7 +411,7 @@ class Assembler:
         return bin32
 
     @classmethod
-    def b_type(cls, instr_type, instr_body, bin32):
+    def b_type(cls, addr, instr_type, instr_body, bin32, sym_table):
         tmp = instr_body.split(',')
         rs1 = str(tmp[0]).replace(' ','')
         rs2 = str(tmp[1]).replace(' ','')
@@ -420,11 +420,19 @@ class Assembler:
         rs1_int = int(rs1[1:])
         rs2_int = int(rs2[1:])
 
-        if offset[0] in ['+', '-']:
+        # If this is a $LABEL then use `sym_table`.
+        if (offset[0] in '$'):
+            # Remove $LABEL : 0x00000000
+            target_addr = sym_table[offset][2:]
+            offset = int(target_addr,16) - int(addr[2:],16)
+            imm = int(offset)
+        # If offset sign is specified as `+34` OR `-21`.
+        elif offset[0] in ['+', '-']:
             imm_sign = offset[0]
             imm = int(offset[1:])
             if imm_sign == '-':
                 imm = cls.twos_complement(imm)
+        # If no sign specified then it defaults to `+`.
         else:
             imm = int(offset)
 
@@ -509,7 +517,8 @@ class Assembler:
         return bin32
 
     @classmethod
-    def assemble(cls, instr):
+    # `addr` should be in HEX-format as `0x00000000`.
+    def assemble(cls, addr, instr, sym_table):
         bin32 = '00000000000000000000000000000000'
 
         instr = instr.lstrip(' ')
@@ -543,7 +552,7 @@ class Assembler:
             bin32 = cls.s_type(instr_type, instr_body, bin32)
         # b-type (branch) instructions
         elif (instr_type in cls.instr_t['b']):
-            bin32 = cls.b_type(instr_type, instr_body, bin32)
+            bin32 = cls.b_type(addr, instr_type, instr_body, bin32, sym_table)
         # u-type instructions
         elif (instr_type in cls.instr_t['u']):
             bin32 = cls.u_type(instr_type, instr_body, bin32)
