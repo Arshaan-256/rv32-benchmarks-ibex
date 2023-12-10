@@ -16,7 +16,7 @@ def fix_addr_in_code(file_data):
             if (line[0] == '$'):
                 # Remove the `0x` from the HEX conversion and zfill it to 8 digits. 
                 line_str[1] = hex(addr+4)[2:].zfill(8)
-                file_data[idx] = f"{line_str[0]}: {line_str[1]}\n"
+                file_data[idx] = f"{line_str[0]}:0x{line_str[1]}\n"
             else:
                 addr = addr + 4
                 # Remove the `0x` from the HEX conversion and zfill it to 8 digits. 
@@ -24,6 +24,17 @@ def fix_addr_in_code(file_data):
                 file_data[idx] = f"0x{line_str[0]}: {line_str[1]}"
 
     return file_data
+
+def first_pass(file_data):
+    dict_lbl = dict()
+    # This line is a label.
+    # $LABEL: 0x00000000
+    for idx, line in enumerate(file_data):
+        if (line[0] == '$'):
+            line_str = str(line[:-1]).split(':')
+            dict_lbl[line_str[0]] = line_str[1]
+
+    return dict_lbl
 
 # for u-type, imm[31:20] = offset and imm[19:0] = 0
 # for b/j-type, imm[12:0] = offset ==> user needs to make sure that the offsets are multiples of 2
@@ -57,51 +68,49 @@ if __name__ == '__main__':
         f_write = open(filepath_write, 'w')
         for idx in range(len(file_data)):
             f_write.write(f'{file_data[idx]}')
+    else:
+        # Assemble code.
+        # Run first pass to isolate labels.
+        dict_lbl = first_pass(file_data)
 
-    
+        for key in dict_lbl:
+            print(f"{key}: {dict_lbl[key]}")
 
-    
-    
+        code_mem = []
+        map_mem = []
+        for line in file_data:
+            if (line != '\n') and (line[0] != '#') and (line[0] != '$'):
+                line = line.replace('\n', '')
+                line_str = str(line).split(':')
+                out = Assembler.assemble(addr=line_str[0],instr=line_str[1],sym_table=dict_lbl)
+                s = f'{line}:   \t{out}'            
+                print(s)
 
-    # for key in dict_lbl:
-    #     print(f"{key}: {dict_lbl[key]}")
+                code_mem.append(out)
+                map_mem.append(s)
+            else:
+                line = line[:-1]
+                print(line)
+                map_mem.append(line)
 
-    
+        # Save binary encoding
+        filename_write = f'{filename[:-1]}x'
+        filepath_write = os.path.join(cur_path, filename_write)
+        print(f'{filename_write}')
+        f_write = open(filepath_write, 'w')
 
-    # code_mem = []
-    # map_mem = []
-    # for line in file_data:
-    #     if (line != '\n') and (line[0] != '#'):
-    #         line_str = str(line).split(':')
-    #         out = Assembler.assemble(line_str[1])
-    #         s = f'{line[:-1]}:   \t{out}'            
-    #         print(s)
+        for idx in range(len(code_mem)):
+            f_write.write(f'{code_mem[idx]}')
+            if idx != len(code_mem)-1:
+                f_write.write(',\n')
 
-    #         code_mem.append(out)
-    #         map_mem.append(s)
-    #     else:
-    #         line = line[:-1]
-    #         print(line)
-    #         map_mem.append(line)
+        # Save code to binary mapping
+        filename_write = f'{filename[:-1]}map'
+        filepath_write = os.path.join(cur_path, filename_write)
+        print(f'{filename_write}')
+        f_write = open(filepath_write, 'w')
 
-    # # Save binary encoding
-    # filename_write = f'{filename[:-1]}x'
-    # filepath_write = os.path.join(cur_path, filename_write)
-    # print(f'{filename_write}')
-    # f_write = open(filepath_write, 'w')
-
-    # for idx in range(len(code_mem)):
-    #     f_write.write(f'{code_mem[idx]}')
-    #     if idx != len(code_mem)-1:
-    #         f_write.write(',\n')
-
-    # # Save code to binary mapping
-    # filename_write = f'{filename[:-1]}map'
-    # filepath_write = os.path.join(cur_path, filename_write)
-    # print(f'{filename_write}')
-    # f_write = open(filepath_write, 'w')
-
-    # for idx in range(len(map_mem)):
-    #     f_write.write(f'{map_mem[idx]}')
-    #     if idx != len(map_mem)-1:
-    #         f_write.write('\n')
+        for idx in range(len(map_mem)):
+            f_write.write(f'{map_mem[idx]}')
+            if idx != len(map_mem)-1:
+                f_write.write('\n')
