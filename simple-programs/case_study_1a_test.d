@@ -53,16 +53,19 @@
 # x22 - Halt core
 #       Resume core
 #
+# ****
 # DSPM
-# 00: Average latency threshold.
-# 04: Acceptable delay allowed per core.
-# 08: Read-hit delay on CUA from the interfering cores.
-# 0c: Read-miss delay on CUA from the interfering cores.
-# 10: Write-hit delay on CUA from the interfering cores.
-# 14: Write-miss delay on CUA from the interfering cores.
-# 18: Store upper bits of total latency.
-# 1c: Store lower bits of total latency.
-# 20: Target Address
+# ****
+# 0x00: Average latency threshold.
+# 0x04: Acceptable delay allowed per core.
+# 0x08: Read-hit delay on CUA from the interfering cores.
+# 0x0c: Read-miss delay on CUA from the interfering cores.
+# 0x10: Write-hit delay on CUA from the interfering cores.
+# 0x14: Write-miss delay on CUA from the interfering cores.
+# 0x18: Store upper bits of total latency.
+# 0x1c: Store lower bits of total latency.
+# 0x20: Write core status here for debugging.
+# 0x24: Program over.
 #
 # *******************************************************************
 # Init.
@@ -115,14 +118,17 @@ $OUTER_LOOP:        0x00000034
 # Load old total latency from DSPM.
 # x9 = Upper bits of total latency
 # x8 = Lower bits of total latency
-0x00000068:         lw x9,18(x30)
-0x0000006c:         lw x8,24(x30)
+0x00000068:         lw x9,24(x30)
+0x0000006c:         lw x8,28(x30)
 # Add up to get new total latency
-0x00000070:         add x7,x8,x7
-# x7 = x8 + x7, if x7 < x8 then there as a carry; if x8 <= x7 then there was no carry.
-0x00000074:         bgeu x7,x8,$NO_CARRY_CUA
+0x00000070:         add x8,x7,x8
+# x8 = x7 + x8, if x8 < x7 then there as a carry; if x7 <= x8 then there was no carry.
+0x00000074:         bgeu x8,x7,$NO_CARRY_CUA
 # If there was a carry increment the upper 32 bits.
 0x00000078:         addi x9,x9,1
+# Store new total latency to DSPM.
+0x00000068:         sw x9,24(x30)
+0x0000006c:         sw x8,28(x30)
 #
 # Calculate total latency threshold.
 # x10 - Lower bits of total latency thershold.
@@ -139,10 +145,10 @@ $NO_CARRY_CUA:      0x0000007c
 # If Uthres <  Utotal => Regulate ; else continue
 # If Uthres != Utotal => Don't regulate ; else continue
 # If Lthres <  Ltotal => Regulate ; else don't regulate
-# Total delay: {x9,x8} and latency threshold: {x11,x10}
-0x0000008c:         bltu x11,x8,$REGULATE
-0x00000090:         bne x11,x8,$NO_REGULATE
-0x00000094:         bltu x10,x11,$REGULATE
+# Latency threshold: {x11,x10} and total delay: {x9,x8}
+0x0000008c:         bltu x11,x9,$REGULATE
+0x00000090:         bne x11,x9,$NO_REGULATE
+0x00000094:         bltu x10,x8,$REGULATE
 $NO_REGULATE:       0x00000098
 0x00000098:         addi x9,x0,0
 0x0000009c:         beq x0,x0,$INNER_LOOP
@@ -257,7 +263,7 @@ $HALT_DECISION:     0x0000014c
 0x0000014c:         addi x17,x0,1
 #
 $STATUS:            0x00000150
-# Mask = 1 << Core Number# x6  - 
+# Mask = 1 << Core Number
 # x21  = x1 << x2
 0x00000150:         sll x19,x1,x2
 # x21 = (x20 & x19) (BitVector & Mask)
@@ -290,7 +296,7 @@ $UPDATE:            0x00000178
 0x00000178:         blt x2,x31,$INNER_LOOP
 # Go to OuterLoop. (00000030)
 # This is reset by CVA6.
-0x0000017c:         sw x1,28(x30)
+0x0000017c:         sw x1,36(x30)
 0x00000180:         beq x0,x0,$OUTER_LOOP
 #
 # *************
@@ -300,7 +306,8 @@ $UPDATE:            0x00000178
 $HALT_CORE:         0x00000184
 0x00000184:         add x0,x0,x0
 0x00000188:         add x0,x0,x0
-0x0000018c:         sw x20,24(x30)
+# Store core_status at DSPM_BASE_ADDR + 0x20
+0x0000018c:         sw x20,32(x30)
 0x00000190:         add x0,x0,x0
 0x00000194:         or x20,x20,x19
 # Go to Update Function. (000000e0)
@@ -312,6 +319,7 @@ $HALT_CORE:         0x00000184
 $RESUME_CORE:       0x0000019c
 0x0000019c:         xori x19,x19,-1
 0x000001a0:         and x20,x20,x19
-0x000001a4:         sw x20,24(x30)
+# Store core_status at DSPM_BASE_ADDR + 0x20
+0x000001a4:         sw x20,32(x30)
 # Go to Update Function. (000000e0)
 0x000001a8:         beq x0,x0,$UPDATE
