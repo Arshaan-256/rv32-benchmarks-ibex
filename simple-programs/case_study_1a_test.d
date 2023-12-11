@@ -140,7 +140,7 @@ $NO_CARRY_CUA:      0x0000007c
 # x16 - Lower bits of acceptable delay.
 # x17 - Upper bits of acceptable delay.
 0x00000084:         mul x16,x27,x4
-0x00000088:         mul x17,x27,x4
+0x00000088:         mulhu x17,x27,x4
 # Compare total latency against threshold.
 # If Uthres <  Utotal => Regulate ; else continue
 # If Uthres != Utotal => Don't regulate ; else continue
@@ -235,8 +235,8 @@ $NO_CARRY_WH:       0x00000114
 # Write Misses (x13, x26)
 # x7, x6  = x13 * x26
 $CONTINUE_WM:       0x00000120
-0x00000120:         mul x6,x12,x25
-0x00000124:         mulhu x7,x12,x25
+0x00000120:         mul x6,x13,x26
+0x00000124:         mulhu x7,x13,x26
 # x5 = x5 + x7 ; x4 = x4 + x6
 0x00000128:         add x5,x5,x7
 0x0000012c:         add x4,x4,x6
@@ -255,12 +255,12 @@ $NO_CARRY_WM:       0x00000138
 0x00000140:         bltu x16,x4,$HALT_DECISION
 #
 #
-# x17 = 1, if acceptable-delay < WC-delay else 0.
+# x5 (Reuse) = 1, if acceptable-delay < WC-delay else 0.
 $NO_HALT_DECISION:  0x00000144
-0x00000144:         addi x17,x0,0
+0x00000144:         addi x5,x0,0
 0x00000148:         beq x0,x0,$STATUS
 $HALT_DECISION:     0x0000014c
-0x0000014c:         addi x17,x0,1
+0x0000014c:         addi x5,x0,1
 #
 $STATUS:            0x00000150
 # Mask = 1 << Core Number
@@ -273,19 +273,19 @@ $STATUS:            0x00000150
 0x00000158:         srl x21,x21,x2
 #
 # Resume core = CoreHalted & (WC-delay =< acceptable-delay)
-# x22         = x21        & x18 (=!x17)
+# x22         = x21        & x6 (=!x5) (Reuse) 
 # If 1, go to Resume Function.
-0x0000015c:         xori x18,x17,1
-0x00000160:         and x22,x21,x18
+0x0000015c:         xori x6,x5,1
+0x00000160:         and x22,x21,x6
 0x00000164:         beq x22,x1,$RESUME_CORE
 #
 # Halt core = Regulate & !CoreHalted & (acceptable-delay < WC-delay)
-# x22       = x9       & !x21        & x17   
+# x22       = x9       & !x21        & x5   
 # x21[0] = !x21[0]
 # If 1, go to Halt Function. (000000ec)
 0x00000168:         xori x21,x21,1
 0x0000016c:         and x22,x9,x21
-0x00000170:         and x22,x22,x17
+0x00000170:         and x22,x22,x5
 0x00000174:         beq x22,x1,$HALT_CORE
 #
 # ****************************************
@@ -304,12 +304,12 @@ $UPDATE:            0x00000178
 # *************
 # 00000000: sw x2,0(x29)
 $HALT_CORE:         0x00000184
-0x00000184:         add x0,x0,x0
+0x00000184:         or x20,x20,x19
 0x00000188:         add x0,x0,x0
 # Store core_status at DSPM_BASE_ADDR + 0x20
 0x0000018c:         sw x20,32(x30)
 0x00000190:         add x0,x0,x0
-0x00000194:         or x20,x20,x19
+0x00000194:         add x0,x0,x0
 # Go to Update Function. (000000e0)
 0x00000198:         beq x0,x0,$UPDATE
 # ***************
