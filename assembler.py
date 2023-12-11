@@ -427,7 +427,6 @@ class Assembler:
             offset = int(target_addr,16) - int(addr[2:],16)
             if offset < 0:
                 imm = cls.twos_complement(offset*-1)
-                print(f"ok {imm}")
             else:
                 imm = int(offset)
         # If offset sign is specified as `+34` OR `-21`.
