@@ -14,14 +14,16 @@ def fix_addr_in_code(file_data):
             # This line is a label.
             # $LABEL: 0x00000000
             if (line[0] == '$'):
-                # Remove the `0x` from the HEX conversion and zfill it to 8 digits. 
-                line_str[1] = hex(addr+4)[2:].zfill(8)
-                file_data[idx] = f"{line_str[0]}:0x{line_str[1]}\n"
+                # Remove the `0x` from the HEX conversion and zfill it to 8 digits.    
+                line_str[1] = line_str[1].split("0x")
+                line_str[1][1] = hex(addr+4)[2:].zfill(8)
+                line_str[1] = '0x'.join(line_str[1])
+                file_data[idx] = f"{line_str[0]}:{line_str[1]}\n"
             else:
                 addr = addr + 4
                 # Remove the `0x` from the HEX conversion and zfill it to 8 digits. 
                 line_str[0] = hex(addr)[2:].zfill(8)
-                file_data[idx] = f"0x{line_str[0]}: {line_str[1]}"
+                file_data[idx] = f"0x{line_str[0]}:{line_str[1]}"
 
     return file_data
 
