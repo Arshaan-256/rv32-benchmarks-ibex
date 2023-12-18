@@ -10,6 +10,12 @@ fix:
 	python3 riscv_assembler.py --mode=FIX
 
 replace: 
-	rm -f $(FILE).d
-	mv $(FILE).new $(FILE).d
+	if [ -f /path/to/file ]; then \
+		rm -f $(FILE).d; \
+		mv $(FILE).new $(FILE).d; \
+	else \
+		echo 'File does not exist.'; \
+	fi
+
+	
 
