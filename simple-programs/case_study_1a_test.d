@@ -46,6 +46,8 @@
 # x16 - Acceptable delay.
 # x17 - Is acceptable delay < delayed caused? (1 if yes)
 #
+# x18 - Address of the DSPM pointer to write the halt / resume status of the core. 
+#
 # x19 - Mask.
 # x20 - Bit vector holding the status of halted / resumed cores.
 # x21 - Is the core halted? (1 if yes.)
@@ -56,25 +58,40 @@
 # ****
 # DSPM
 # ****
-# 0x00: Average latency threshold.
-# 0x04: Acceptable delay allowed per core.
-# 0x08: Read-hit delay on CUA from the interfering cores.
-# 0x0c: Read-miss delay on CUA from the interfering cores.
-# 0x10: Write-hit delay on CUA from the interfering cores.
-# 0x14: Write-miss delay on CUA from the interfering cores.
-# 0x18: Store upper bits of total latency.
-# 0x1c: Store lower bits of total latency.
-# 0x20: Write core status here for debugging.
-# 0x24: Program over.
+# 0x00:  Average latency threshold.
+# 0x04:  Acceptable delay allowed per core.
+# 0x08:  Read-hit delay on CUA from the interfering cores.
+# 0x0c:  Read-miss delay on CUA from the interfering cores.
+# 0x10:  Write-hit delay on CUA from the interfering cores.
+# 0x14:  Write-miss delay on CUA from the interfering cores.
+# 0x18:  Store upper bits of total latency.
+# 0x1c:  Store lower bits of total latency.
+# 0x20:  Write core status here for debugging.
+# 0x24:  Program over.
+#
+# 0x040 for regulation time of Core 1.  
+# 0x048 for time stamp of current halt Core 1.
+# 0x050 for time stamp of current resume Core 1.
+# 0x080 for regulation time of Core 2.  
+# 0x088 for time stamp of current halt Core 2.
+# 0x090 for time stamp of current resume Core 2.
+# 0x100 for regulation time of Core 3.  
+# 0x108 for time stamp of current halt Core 3.
+# 0x110 for time stamp of current resume Core 3.
+#
+# The code follows little-endian.
 #
 # *******************************************************************
 # Init.
 # *******************************************************************
-# Load number of cores
+# Load number of interfering cores
 0x00000000:         addi x31,x0,4
 # Load DSPM base address into x30.
 0x00000004:         lui x30,0
 0x00000008:         addi x30,x30,0
+# Load PMU Timer into x18.
+0x0000000c:         lui x18,66564
+0x00000008:         addi x18,x18,0
 # Load Debug Module base address into x30.
 0x0000000c:         lui x29,0
 0x00000010:         addi x29,x29,512
@@ -90,6 +107,8 @@
 0x00000028:         lw x25,16(x30)
 0x0000002c:         lw x26,20(x30)
 0x00000030:         addi x1,x0,1
+# Reset core halt-resume status.
+0x00000030:         addi x20,x0,0
 #
 # *******************************************************************
 # OuterLoop: Program starts.
@@ -122,7 +141,7 @@ $OUTER_LOOP:        0x00000034
 0x0000006c:         lw x8,28(x30)
 # Add up to get new total latency
 0x00000070:         add x8,x7,x8
-# x8 = x7 + x8, if x8 < x7 then there as a carry; if x7 <= x8 then there was no carry.
+# x8 = x7 + x8, if x8 < x7 then there was a carry; if x7 <= x8 then there was no carry.
 0x00000074:         bgeu x8,x7,$NO_CARRY_CUA
 # If there was a carry increment the upper 32 bits.
 0x00000078:         addi x9,x9,1
@@ -154,7 +173,14 @@ $NO_REGULATE:       0x000000a0
 0x000000a4:         beq x0,x0,$INNER_LOOP
 $REGULATE:          0x000000a8
 0x000000a8:         addi x9,x0,1
-# At this point, the only important register is x1, x2, x3 and x9.
+# At this point, the only important registers are: 
+#                   x1  (1), 
+#                   x2  (Core ID), 
+#                   x3  (Counter ID), 
+#                   x9  (Regulate Decision),
+#                   x16 (Lower bits of acceptable delay for non-CUA cores),
+#                   x17 (Upper bits of acceptable delay for non-CUA cores),
+#                   x20 (Stores the core halt-resume status).
 # Load 1 into x1.
 #
 # *******************************************************************
@@ -299,27 +325,96 @@ $UPDATE:            0x00000180
 0x00000184:         sw x1,36(x30)
 0x00000188:         beq x0,x0,$OUTER_LOOP
 #
+# DSPM Addresses.
+# ***************
+# 0x040 for regulation time of Core 1.  
+# 0x048 for time stamp of current halt Core 1.
+# 0x050 for time stamp of current resume Core 1.
+# 0x080 for regulation time of Core 2.  
+# 0x088 for time stamp of current halt Core 2.
+# 0x090 for time stamp of current resume Core 2.
+# 0x100 for regulation time of Core 3.  
+# 0x108 for time stamp of current halt Core 3.
+# 0x110 for time stamp of current resume Core 3.
 # *************
 # Halt Function
 # *************
+# Debug Halt
 # 00000000: sw x2,0(x29)
 $HALT_CORE:         0x0000018c
 0x0000018c:         or x20,x20,x19
-0x00000190:         add x0,x0,x0
 # Store core_status at DSPM_BASE_ADDR + 0x20
-0x00000194:         sw x20,32(x30)
-0x00000198:         add x0,x0,x0
-0x0000019c:         add x0,x0,x0
+0x00000190:         sw x20,32(x30)
+#
+# Regulation Time Calculator.
+# For core 1, 0x040, the offset is 6.
+# For core 2, 0x080, the offset is 7.
+# For core 3, 0x100, the offset is 8.
+# x4 = x2 + 5       (This calculates the offset).
+# x4 = 1 << x4.     (Shift to get the address for each core.)
+0x00000190:         addi x4,x2,5
+0x00000190:         sll x4,x1,x4
+0x00000190:         add x4,x30,x4
+# x6 = Upper bits of PMU Timer.
+# x5 = Lower bits of PMU Timer.
+0x00000190:         lw x5,0(x18)
+0x00000190:         lw x6,4(x18)
+# Store timestamp for current halt decision.
+0x00000190:         sw x5,8(x4)
+0x00000190:         sw x6,12(x4)
 # Go to Update Function. (000000e0)
 0x000001a0:         beq x0,x0,$UPDATE
 # ***************
 # Resume Function
 # ***************
+# Debug Resume
 # 00000000: sw x2,8(x29)
 $RESUME_CORE:       0x000001a4
 0x000001a4:         xori x19,x19,-1
 0x000001a8:         and x20,x20,x19
 # Store core_status at DSPM_BASE_ADDR + 0x20
 0x000001ac:         sw x20,32(x30)
+#
+# Regulation Time Calculator.
+# For core 1, 0x040, the offset is 6.
+# For core 2, 0x080, the offset is 7.
+# For core 3, 0x100, the offset is 8.
+# x4 = x2 + 5       (This calculates the offset).
+# x4 = 1 << x4.     (Shift to get the address for each core.)
+0x00000190:         addi x4,x2,5
+0x00000190:         sll x4,x1,x4
+0x00000190:         add x4,x30,x4
+# x6 = Upper bits of PMU Timer.
+# x5 = Lower bits of PMU Timer.
+0x00000190:         lw x5,0(x18)
+0x00000190:         lw x6,4(x18)
+# Load timestamp for current halt decision.
+# x8 = Upper bits of timestamp.
+# x7 = Lower bits of timestamp.
+0x00000190:         lw x7,8(x4)
+0x00000190:         lw x8,12(x4)
+# Store timestamp for current resume decision.
+0x00000190:         sw x7,16(x4)
+0x00000190:         sw x8,20(x4)
+# Calculate duration for which core was halted currently. 
+# Subtract current timestamp {x6,x5} from that of halt decision {x8,x7}.
+0x00000190:         sub x5,x5,x7
+0x00000190:         sub x6,x6,x8
+# Load regulation time.
+# x8 = Upper bits of regulation time.
+# x7 = Lower bits of regulation time.
+0x00000190:         lw x7,0(x4)
+0x00000190:         lw x8,4(x4)
+# Add regulation time and duration for which core was halted currently. 
+# Add {x8,x7} and {x6,x5}.
+0x00000190:         add x6,x8,x6
+0x00000190:         add x5,x7,x5
+# x5 = x7 + x5, if x7 < x5 then there was a carry OR if x5 >= x7 then there was no carry.
+0x00000190:         bgeu x7,x5,$NO_CARRY_RT
+0x00000190:         addi x6,x6,1
+$NO_CARRY_RT:       0x00000190
+# Store the new regulation time.
+0x00000190:         sw x5,0(x4)
+0x00000190:         sw x6,4(x4)
 # Go to Update Function. (000000e0)
 0x000001b0:         beq x0,x0,$UPDATE
