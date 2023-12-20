@@ -8,15 +8,6 @@
 # Check if the delta / # of requests <=  alp_xh k_LLCh + alp_xm k_LLCm,
 #                                        k_LLCh, k_LLCm are hits and miss -made by the interfering cores.
 #
-# x31 - Number of cores. (CUA is core 0.)
-# x30 - Address of the data SPM.
-# x29 - Address of Debug Module.
-# x28 - Average latency threshold                           @ DSPM_BASE + 0x0
-# x27 - Acceptable delay allowed per request per core.      @ DSPM_BASE + 0x4
-# x23 - Read-hit delay on CUA from the interfering cores.   @ DSPM_BASE + 0x8
-# x24 - Read-miss delay on CUA from the interfering cores.  @ DSPM_BASE + 0xc
-# x25 - Write-hit delay on CUA from the interfering cores.  @ DSPM_BASE + 0x10
-# x26 - Write-miss delay on CUA from the interfering cores. @ DSPM_BASE + 0x14
 #
 # x1 - Stores 1.
 #
@@ -46,14 +37,24 @@
 # x16 - Acceptable delay.
 # x17 - Is acceptable delay < delayed caused? (1 if yes)
 #
-# x18 - Address of the DSPM pointer to write the halt / resume status of the core. 
-#
+# x18 - Address of PMU Timer. 
+# 
 # x19 - Mask.
 # x20 - Bit vector holding the status of halted / resumed cores.
 # x21 - Is the core halted? (1 if yes.)
 #
 # x22 - Halt core
 #       Resume core
+#
+# x31 - Number of cores. (CUA is core 0.)
+# x30 - Address of the data SPM.
+# x29 - Address of Debug Module.
+# x28 - Average latency threshold                           @ DSPM_BASE + 0x0
+# x27 - Acceptable delay allowed per request per core.      @ DSPM_BASE + 0x4
+# x23 - Read-hit delay on CUA from the interfering cores.   @ DSPM_BASE + 0x8
+# x24 - Read-miss delay on CUA from the interfering cores.  @ DSPM_BASE + 0xc
+# x25 - Write-hit delay on CUA from the interfering cores.  @ DSPM_BASE + 0x10
+# x26 - Write-miss delay on CUA from the interfering cores. @ DSPM_BASE + 0x14
 #
 # ****
 # DSPM
@@ -145,6 +146,7 @@ $OUTER_LOOP:        0x00000040
 0x00000080:         bgeu x8,x7,$NO_CARRY_CUA
 # If there was a carry increment the upper 32 bits.
 0x00000084:         addi x9,x9,1
+$NO_CARRY_CUA:      0x00000090
 # Store new total latency to DSPM.
 0x00000088:         sw x8,24(x30)
 0x0000008c:         sw x9,28(x30)
@@ -152,7 +154,6 @@ $OUTER_LOOP:        0x00000040
 # Calculate total latency threshold.
 # x10 - Lower bits of total latency thershold.
 # x11 - Upper bits of total latency thershold.
-$NO_CARRY_CUA:      0x00000090
 0x00000090:         mul x10,x28,x4
 0x00000094:         mulhu x11,x28,x4
 # Calculate acceptable delay for non-CUA cores.
