@@ -1,5 +1,7 @@
 __pycache__
 individual-instructions/*.x
 individual-instructions/*.map
+individual-instructions/*.new
 simple-programs/*.x
 simple-programs/*.map
+simple-programs/*.new
