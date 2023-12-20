@@ -326,48 +326,47 @@ $HALT_CORE:         0x00000194
 0x00000198:         sw x20,32(x30)
 #
 # Regulation Trace
-# Load PMU Timer into x4.
+# Load PMU Timer address in x4.
 0x0000019c:         lui x4,66564
-0x000001a0:         addi x4,x4,0
 # x6 = Upper bits of PMU Timer.
 # x5 = Lower bits of PMU Timer.
-0x000001a4:         lw x5,0(x4)
-0x000001a8:         lw x6,4(x4)
+0x000001a0:         lw x5,0(x4)
+0x000001a4:         lw x6,4(x4)
 # Halt means 1 at 16-bit.
-0x000001ac:         slli x4,x1,16
-0x000001b0:         add x4,x4,x2
+0x000001a8:         slli x4,x1,16
+0x000001ac:         add x4,x4,x2
 # Load timestamp for current halt decision.
-0x000001b4:         lw x4,0(x18)
-0x000001b8:         lw x5,4(x18)
-0x000001bc:         lw x6,8(x18)
-0x000001c0:         addi x18,x18,12
+0x000001b0:         sw x4,0(x18)
+0x000001b4:         sw x5,4(x18)
+0x000001b8:         sw x6,8(x18)
+0x000001bc:         addi x18,x18,12
 # Go to Update Function. (000000e0)
-0x000001c4:         beq x0,x0,$UPDATE
+0x000001c0:         beq x0,x0,$UPDATE
 # ***************
 # Resume Function
 # ***************
 # Debug Resume
 # 00000000: sw x2,8(x29)
-$RESUME_CORE:       0x000001c8
-0x000001c8:         xori x19,x19,-1
-0x000001cc:         and x20,x20,x19
+$RESUME_CORE:       0x000001c4
+0x000001c4:         xori x19,x19,-1
+0x000001c8:         and x20,x20,x19
 # Store core_status at DSPM_BASE_ADDR + 0x20
-0x000001d0:         sw x20,32(x30)
+0x000001cc:         sw x20,32(x30)
 #
 # Regulation Trace.
-0x000001d4:         lui x4,66564
-0x000001d8:         addi x4,x4,0
+# Load PMU Timer address in x4.
+0x000001d0:         lui x4,66564
 # x6 = Upper bits of PMU Timer.
 # x5 = Lower bits of PMU Timer.
-0x000001dc:         lw x5,0(x4)
-0x000001e0:         lw x6,4(x4)
+0x000001d4:         lw x5,0(x4)
+0x000001d8:         lw x6,4(x4)
 # Halt means 1 at 16-bit.
-0x000001e4:         slli x4,x1,17
-0x000001e8:         add x4,x4,x2
+0x000001dc:         slli x4,x1,17
+0x000001e0:         add x4,x4,x2
 # Load timestamp for current halt decision.
-0x000001ec:         lw x4,0(x18)
-0x000001f0:         lw x5,4(x18)
-0x000001f4:         lw x6,8(x18)
-0x000001f8:         addi x18,x18,12
+0x000001e4:         sw x4,0(x18)
+0x000001e8:         sw x5,4(x18)
+0x000001ec:         sw x6,8(x18)
+0x000001f0:         addi x18,x18,12
 # Go to Update Function. (000000e0)
-0x000001fc:         beq x0,x0,$UPDATE
+0x000001f4:         beq x0,x0,$UPDATE
