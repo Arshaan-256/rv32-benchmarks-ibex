@@ -10,7 +10,7 @@ fix:
 	python3 riscv_assembler.py --mode=FIX
 
 replace: 
-	if [ -f /path/to/file ]; then \
+	if [ -f $(FILE).new ]; then \
 		rm -f $(FILE).d; \
 		mv $(FILE).new $(FILE).d; \
 	else \
