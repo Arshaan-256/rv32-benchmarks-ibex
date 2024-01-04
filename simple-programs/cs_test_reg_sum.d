@@ -1,3 +1,12 @@
+# *********************************************************************************************************
+# Case Study without Debug Module, writing total time each core was regulated (halted) into DSPM.
+# This code does not halt / resume cores but rather stores the core status register (x20) in the DSPM.
+# It is used for testing the algorithms. It also keeps count of the total time each core was regulated (halted).
+# Note: 0x40 is for core 1, 0x80 for core 2, 0x100 for core 3.
+#
+# Test Status: The regulation logic has been tested but the total regulation time logic hasn't been tested.
+# *********************************************************************************************************
+#
 # D     = Total acceptable delay.
 # delta = Delay allowed per core.
 #

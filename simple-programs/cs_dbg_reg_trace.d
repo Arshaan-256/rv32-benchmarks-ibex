@@ -1,3 +1,11 @@
+# *********************************************************************************************************
+# Case Study with Debug Module, writing Regulation Trace into DSPM.
+# This code halts / resumes cores using the debug module, while writing the timestamp of the halt / resume
+# decisions into the DSPM (3B per entry, 2B for 64-bit time, 1B for core ID and halt / resume).
+#
+# Test Status: The regulation logic has been tested but the trace functionality has been tested to some extent.
+# *********************************************************************************************************
+#
 # D     = Total acceptable delay.
 # delta = Delay allowed per core.
 #
@@ -6,7 +14,7 @@
 #
 # Every P clock cycle, read the read and write request latencies  of the CUA.
 # Check if the delta / # of requests <=  alp_xh k_LLCh + alp_xm k_LLCm,
-#                                        k_LLCh, k_LLCm are hits and miss -made by the interfering cores.
+#                                        k_LLCh, k_LLCm are hits and misses made by the interfering cores.
 #
 # x31 - Number of cores. (CUA is core 0.)
 # x30 - Address of the data SPM.
@@ -332,7 +340,7 @@ $HALT_CORE:         0x00000194
 # x5 = Lower bits of PMU Timer.
 0x000001a0:         lw x5,0(x4)
 0x000001a4:         lw x6,4(x4)
-# Halt means 1 at 16-bit.
+# Halt means 1 at 16th bit.
 0x000001a8:         slli x4,x1,16
 0x000001ac:         add x4,x4,x2
 # Load timestamp for current halt decision.
@@ -360,7 +368,7 @@ $RESUME_CORE:       0x000001c4
 # x5 = Lower bits of PMU Timer.
 0x000001d4:         lw x5,0(x4)
 0x000001d8:         lw x6,4(x4)
-# Halt means 1 at 16-bit.
+# Resume means 1 at 17th bit.
 0x000001dc:         slli x4,x1,17
 0x000001e0:         add x4,x4,x2
 # Load timestamp for current halt decision.

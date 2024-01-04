@@ -1,3 +1,12 @@
+# *********************************************************************************************************
+# Case Study without Debug Module, writing Regulation Trace into DSPM.
+# This code does not halt / resume cores but rather stores the core status register (x20) in the DSPM.
+# It is used for testing the algorithms. It writes the timestamp of the halt / resume decisions
+# of each core into the DSPM (3B per entry, 2B for 64-bit time, 1B for core ID and halt / resume).
+#
+# Test Status: The regulation logic has been tested but the trace functionality has been tested to some extent.
+# *********************************************************************************************************
+#
 # D     = Total acceptable delay.
 # delta = Delay allowed per core.
 #
