@@ -592,7 +592,7 @@ class Assembler:
         return bin32
 
     @classmethod
-    def j_type(cls, instr_type, instr_body, bin32):
+    def j_type(cls, addr, instr_type, instr_body, bin32, sym_table):
         tmp = instr_body.split(',')
         rd  = str(tmp[0]).replace(' ','')
         offset = str(tmp[1]).replace(' ', '')
@@ -602,7 +602,19 @@ class Assembler:
 
         rd_int = int(rd[1:])
 
-        imm_int = cls.parse_offset(offset)
+        # If this is a .LABEL then use `sym_table`.
+        if (offset[0] in '.'):
+            # Remove .LABEL:
+            target_addr = sym_table[offset][2:]
+            offset = int(target_addr,16) - int(addr[2:],16)                    
+            if offset < 0:
+                imm_int = cls.twos_complement(offset*-1)
+            else:
+                imm_int = int(offset)
+        # Otherwise, the offset is specified as `34`, `+12`, or `-20`.
+        else:
+            imm_int = cls.parse_offset(offset)
+
         imm_bin = bin(int(imm_int))[2:]
         # The offsets are 21-bit values with the 0th bit being always set to 0, 
         # 20 bits are explicitly written in the machine code, the one bit (the 0th bit)
@@ -635,7 +647,9 @@ class Assembler:
         instr_type = str(instr.split(' ', 1)[0])
         instr_body = str(instr.split(' ', 1)[1])
         
+        # li rd, imm
         if (instr_type == 'li'):
+            # Split all components of the instruction.
             tmp     = instr_body.split(',')
             rd      = str(tmp[0]).replace(' ','')
             offset  = str(tmp[1]).replace(' ','')    
@@ -653,13 +667,37 @@ class Assembler:
 
                 opcode = cls.dict_opcodes[instr_type]
                 bin32  = cls.write_reverse_bin(bin32, 0, 6, cls.dict_opcodes[instr_type])
-                bin32 = cls.i_type_all_else(instr_type, instr_body, bin32)
-                
+                bin32 = cls.i_type_all_else(instr_type, instr_body, bin32)                
 
+        # ble rs1,rs2,offset
         elif (instr_type == 'ble'):
-            pass
+            # Split all components of the instruction.
+            tmp = instr_body.split(',')
+            rs1 = str(tmp[0]).replace(' ','')
+            rs2 = str(tmp[1]).replace(' ','')
+            offset = str(tmp[2]).replace(' ', '') 
+
+            # ble rs1,rs2,label => if (rs1 =< rs2) then jump
+            # bge rs2,rs1,label => if (rs2 >= rs1) then jump
+            instr_type = 'bge'
+            instr_body = f'{rs2},{rs1},{offset}'
+
+            opcode = cls.dict_opcodes[instr_type]
+            bin32  = cls.write_reverse_bin(bin32, 0, 6, cls.dict_opcodes[instr_type])
+            bin32 = cls.b_type(addr, instr_type, instr_body, bin32, sym_table)
+
+        # j offset        
         elif (instr_type == 'j'):
-            pass
+            # Split all components of the instruction.
+            tmp = instr_body.split(',')            
+            offset = str(tmp[0]).replace(' ', '')
+
+            instr_type = 'jal'
+            instr_body = f'x0,{offset}'
+            opcode = cls.dict_opcodes[instr_type]
+            bin32  = cls.write_reverse_bin(bin32, 0, 6, cls.dict_opcodes[instr_type])
+            bin32 = cls.j_type(addr, instr_type, instr_body, bin32, sym_table)
+
         else:
             opcode = cls.dict_opcodes[instr_type]
             bin32  = cls.write_reverse_bin(bin32, 0, 6, cls.dict_opcodes[instr_type])
@@ -693,7 +731,7 @@ class Assembler:
                 bin32 = cls.u_type(instr_type, instr_body, bin32)
             # j-type instructions
             elif (instr_type in cls.instr_t['j']):
-                bin32 = cls.j_type(instr_type, instr_body, bin32)
+                bin32 = cls.j_type(addr, instr_type, instr_body, bin32, sym_table)
 
         hex4 = hex(int(bin32, 2))
         return hex4
