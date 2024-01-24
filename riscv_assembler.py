@@ -5,34 +5,41 @@ from assembler import Assembler
 '''
     This function will update the code with correct addressing.
 '''
-def fix_addr_in_code(file_data):
+def fix_addressing_in_gcc_output(file_data):
     addr = -4
     for idx, line in enumerate(file_data):
-        if (line != '\n') and (line[0] != '#'):
-            line_str = str(line).split(':')
-            
-            # This line is a label.
-            # $LABEL: 0x00000000
-            if (line[0] == '$'):
-                # Remove the `0x` from the HEX conversion and zfill it to 8 digits.    
-                line_str[1] = line_str[1].split("0x")
-                line_str[1][1] = hex(addr+4)[2:].zfill(8)
-                line_str[1] = '0x'.join(line_str[1])
-                file_data[idx] = f"{line_str[0]}:{line_str[1]}\n"
-            else:
+        line = line.lstrip(' ')
+        line = line.lstrip('\t')
+        line = line.replace('\n', '')
+        if (line[0] != '#'):
+            # This line is either a label or a function lable.
+            # .LABEL: 
+            # FUNCT_LABEL:
+            if ((line.find(':')) != -1):
+                zfill_addr      = hex(addr+4)[2:].zfill(8)
+                zfill_addr      = '0x' + zfill_addr
+                # Ignoring the ':' at end.
+                if (line[0] == '.'):
+                    file_data[idx]  = f"\n{line[:-1]}:{zfill_addr}"
+                else:
+                    file_data[idx]  = f"\n.{line[:-1]}:{zfill_addr}"
+            # This line is a RISC-V instruction.
+            else:                
                 addr = addr + 4
-                # Remove the `0x` from the HEX conversion and zfill it to 8 digits. 
-                line_str[0] = hex(addr)[2:].zfill(8)
-                file_data[idx] = f"0x{line_str[0]}:{line_str[1]}"
-
+                line            = line.replace('\t',' ')
+                zfill_addr      = hex(addr)[2:].zfill(8)
+                file_data[idx]  = f"0x{zfill_addr}:\t{line}"
+        else:
+            file_data[idx]  = line
+        print(file_data[idx])
     return file_data
 
 def first_pass(file_data):
     dict_lbl = dict()
     # This line is a label.
-    # $LABEL: 0x00000000
+    # .LABEL:
     for idx, line in enumerate(file_data):
-        if (line[0] == '$'):
+        if ((line.find(':')) != -1):      
             line_str = str(line[:-1]).split(':')
             dict_lbl[line_str[0]] = line_str[1]
 
@@ -45,7 +52,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Description of your script')
 
     # Define command-line arguments
-    parser.add_argument('--mode', help='Fix code addressing or build it?')
+    parser.add_argument('--mode', help='What mode are you running in: fix or assemble?')
+
+    # Define command-line arguments
+    parser.add_argument('--file', help='What is filename?')
 
     # Parse the command-line arguments
     args = parser.parse_args()
@@ -54,45 +64,47 @@ if __name__ == '__main__':
     # File path
     cur_path = os.getcwd()
     # filename = 'individual-instructions/ibex-cnt.wfo.d'
-    filename = 'simple-programs/case_study_1a_test.d'
+    filename = 'program.s'
     filepath_read = os.path.join(cur_path, filename)    
     f_read = open(filepath_read, 'r')
     file_data = f_read.readlines()
 
     if (mode == 'FIX'):
         # Fix addressing in code file.
-        file_data = fix_addr_in_code(file_data)
+        file_data = fix_addressing_in_gcc_output(file_data)
 
         # Save new code file.
-        filename_write = f'{filename[:-1]}new'
+        filename_write = f'{filename}.new'
         filepath_write = os.path.join(cur_path, filename_write)
         print(f'Writing {filename_write}')
         f_write = open(filepath_write, 'w')
         for idx in range(len(file_data)):
-            f_write.write(f'{file_data[idx]}')
-    else:
+            f_write.write(f'{file_data[idx]}\n')
+    elif (mode == 'ASSEMBLE'):
         # Assemble code.
         # Run first pass to isolate labels.
-        dict_lbl = first_pass(file_data)
-
+        dict_lbl = first_pass(file_data)        
+        
+        print("Symbol Table:")
         for key in dict_lbl:
             print(f"{key}: {dict_lbl[key]}")
 
+        print("Machine Code:")
         code_mem = []
         map_mem = []
         for line in file_data:
-            if (line != '\n') and (line[0] != '#') and (line[0] != '$'):
+            if (line != '\n') and (line[0] != '#') and (line[0] != '.'):
                 line = line.replace('\n', '')
                 line_str = str(line).split(':')
                 out = Assembler.assemble(addr=line_str[0],instr=line_str[1],sym_table=dict_lbl)
                 s = f'{line}:   \t{out}'            
-                print(s)
+                print(f"{s}")
 
                 code_mem.append(out)
                 map_mem.append(s)
             else:
                 line = line[:-1]
-                print(line)
+                print(f"{line}")
                 map_mem.append(line)
 
         # Save binary encoding
