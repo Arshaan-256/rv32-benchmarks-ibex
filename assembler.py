@@ -1,5 +1,42 @@
+# To do: add support for hex offset, right now all offsets must be input as decimal.
 class Assembler:
     DEBUG = False
+
+    reg_name = {
+        'zero': 'x0',
+        'ra':   'x1',
+        'sp':   'x2',
+        'gp':   'x3',
+        'tp':   'x4',
+        't0':   'x5',
+        't1':   'x6',
+        't2':   'x7',
+        's0':   'x8',
+        'fp':   'x8',
+        's1':   'x9',
+        'a0':   'x10',
+        'a1':   'x11',
+        'a2':   'x12',
+        'a3':   'x13',
+        'a4':   'x14',
+        'a5':   'x15',
+        'a6':   'x16',
+        'a7':   'x17',
+        's2':   'x18',
+        's3':   'x19',
+        's4':   'x20',
+        's5':   'x21',
+        's6':   'x22',
+        's7':   'x23',
+        's8':   'x24',
+        's9':   'x25',
+        's10':  'x26',
+        's11':  'x27',
+        't3':   'x28',
+        't4':   'x29',
+        't5':   'x30',
+        't6':   'x31'
+    }
 
     dict_opcodes = {
         'lui':      '0110111',
@@ -158,7 +195,6 @@ class Assembler:
 
         Output a binary string of length using padding. 
         The output need to slice '0b' out.
-
     '''
     @classmethod
     def pad_binary(cls, num, length):
@@ -177,17 +213,36 @@ class Assembler:
 
         Write bin_val into bin. 
         The bits are written in range of the [start_bit, end_bit] (both inclusive). 
-        The bit ordering is opposite of Python.
+        
+        The bit ordering is opposite of Python. Python represents binary as string, and binary is
+        indexed left-to-right, with the 0th index bit representing the MSB. Binary encoding is indexed 
+        right-to-left, with the 0th index bit representing the LSB.
 
-                76543210      
+        The RISC-V instruction format uses the binary encoding, so when it says bits 0-6 are opcode bits,
+        it means the lowest 7 bits are opcode bits. But according to Python, 0-6 bits are the upper 7 bits.
+        This is why this function is needed.
+
+        Example 1.
+        bits      76543210      
         bin     = 00000010 
         bin_val = 1101
 
         start   = 3
         end     = 6
 
-                76543210
-        op_bin  = 01101010
+                  76543210
+        out_bin = 01101010
+
+        Example 2.
+        bits      76543210      
+        bin     = 00000000 
+        bin_val = 1011
+
+        start   = 3
+        end     = 6
+
+                  76543210
+        out_bin = 01011000
     '''
     @classmethod
     def write_reverse_bin(cls, bin, start_bit, end_bit, bin_val):
@@ -206,6 +261,25 @@ class Assembler:
         nbin = ''.join(rbin[::-1])
         return nbin
 
+    '''
+        This method returns the decimal offset after parsing them.
+        If the offset was negative then it returns its decimal two's complement.
+    '''
+    @classmethod
+    def parse_offset(cls, offset):
+        # Check if the number has an explicit sign, + or -.        
+        if (offset[0] in ['+', '-']):
+            imm_sign = offset[0]
+            imm      = int(offset[1:])
+            # If the offset is negative get two's complement.
+            if imm_sign == '-':
+                imm = cls.twos_complement(imm)
+        else:
+            imm = int(offset)
+
+        return imm
+
+
     @classmethod
     def r_type(cls, instr_type, instr_body, bin32):
         tmp = instr_body.split(',')
@@ -213,6 +287,15 @@ class Assembler:
         rd  = str(tmp[0]).replace(' ','')
         rs1 = str(tmp[1]).replace(' ','')
         rs2 = str(tmp[2]).replace(' ','')
+
+        if rd[0] != 'x':
+            rd  = cls.reg_name[rd]
+        
+        if rs1[0] != 'x':
+            rs1 = cls.reg_name[rs1]
+
+        if rs2[0] != 'x':
+            rs2 = cls.reg_name[rs2]
 
         rd_int  = int(rd[1:])
         rs1_int = int(rs1[1:])
@@ -238,22 +321,21 @@ class Assembler:
         rs1 = str(tmp[1]).replace(' ','')
         rs1 = str(rs1).replace(')','')
 
-        rs1_int = int(rs1[1:])
+        if rd[0] != 'x':
+            rd  = cls.reg_name[rd]
+        
+        if rs1[0] != 'x':
+            rs1 = cls.reg_name[rs1]
+
         rd_int  = int(rd[1:])
+        rs1_int = int(rs1[1:])
 
-        if offset[0] in ['+', '-']:
-            imm_sign = offset[0]
-            imm      = int(offset[1:])
-            if imm_sign == '-':
-                imm  = cls.twos_complement(imm)
-        else:
-            imm = int(offset)
-
-        imm     = bin(int(imm))[2:]
-        pad_imm = cls.pad_binary(imm, 12)[2:]
+        imm_int = cls.parse_offset(offset)
+        imm_bin = bin(int(imm_int))[2:]
+        pad_imm = cls.pad_binary(imm_bin, 12)[2:]
 
         # immediates bits are reversed to select the correct subset of bits for different sub-fields,
-        # after selecting the correct sub-fields, the imm fields are reversed again
+        # after selecting the correct sub-fields, the imm fields are reversed again.
         rpad_imm = pad_imm[::-1]
 
         bin32 = cls.write_reverse_bin(bin32, 7, 11, bin(rd_int)[2:])
@@ -268,11 +350,18 @@ class Assembler:
         # cnt.ld rd, rs1
         # rd = cnt[rs1]
         # cnt.ld instruction is an I-type instructions where imm[11:0], funct3 = 0
-        tmp = instr_body.split(',')
+        tmp = instr_body.split(',')        
 
         rd = str(tmp[0]).replace(' ','')
         rs1 = str(tmp[1]).replace(' ','')
                 
+        if rd[0] != 'x':            
+            print(f"{rd}: {cls.reg_name[rd]}")
+            rd  = cls.reg_name[rd]            
+        
+        if rs1[0] != 'x':
+            rs1 = cls.reg_name[rs1]
+        
         rd_int = int(rd[1:])
         rs1_int = int(rs1[1:])
 
@@ -299,9 +388,15 @@ class Assembler:
 
         rs1 = str(tmp[0]).replace(' ','')
         rs2 = str(tmp[1]).replace(' ','')
+
+        if rs1[0] != 'x':
+            rs1 = cls.reg_name[rs1]
+
+        if rs2[0] != 'x':
+            rs2 = cls.reg_name[rs2]
         
         rs1_int = int(rs1[1:])
-        rs2_int = int(rs2[1:])        
+        rs2_int = int(rs2[1:])
 
         imm = '0'
         pad_imm = cls.pad_binary(imm, 12)[2:]
@@ -329,6 +424,12 @@ class Assembler:
         rd  = str(tmp[0]).replace(' ','')
         rs1 = str(tmp[1]).replace(' ','')
 
+        if rd[0] != 'x':
+            rd  = cls.reg_name[rd]
+        
+        if rs1[0] != 'x':
+            rs1 = cls.reg_name[rs1]
+
         rd_int  = int(rd[1:])
         rs1_int = int(rs1[1:])
         rs2_int = 00000
@@ -347,6 +448,12 @@ class Assembler:
         
         rd  = str(tmp[0]).replace(' ','')
         rs1 = str(tmp[1]).replace(' ','')
+        
+        if rd[0] != 'x':
+            rd  = cls.reg_name[rd]
+        
+        if rs1[0] != 'x':
+            rs1 = cls.reg_name[rs1]
 
         rd_int = int(rd[1:])
         rs1_int = int(rs1[1:])
@@ -361,14 +468,10 @@ class Assembler:
             bin32 = cls.write_reverse_bin(bin32, 20, 24, bin(shamt_int)[2:])
             bin32 = cls.write_reverse_bin(bin32, 25, 31, cls.i_funct7[instr_type])
         else:
-            imm = str(tmp[2]).replace(' ','')
-            if imm[0] in ['+', '-']:
-                imm_sign = imm[0]
-                imm      = int(imm[1:])
-                if imm_sign == '-':
-                    imm  = cls.twos_complement(imm)
-            imm_int = int(imm)
-            bin32   = cls.write_reverse_bin(bin32, 20, 31, bin(imm_int)[2:])
+            offset  = str(tmp[2]).replace(' ','')
+            imm_int = cls.parse_offset(offset)
+            imm_bin = bin(imm_int)[2:]
+            bin32   = cls.write_reverse_bin(bin32, 20, 31, imm_bin)
         return bin32
 
     @classmethod
@@ -381,19 +484,19 @@ class Assembler:
         rs1 = str(tmp[1]).replace(' ','')
         rs1 = str(rs1).replace(')','')
 
+        if rs1[0] != 'x':
+            rs1 = cls.reg_name[rs1]
+
+        if rs2[0] != 'x':
+            rs2 = cls.reg_name[rs2]
+
         rs1_int = int(rs1[1:])
         rs2_int = int(rs2[1:])
 
-        if offset[0] in ['+', '-']:
-            imm_sign = offset[0]
-            imm      = int(offset[1:])
-            if imm_sign == '-':
-                imm  = cls.twos_complement(imm)
-        else:
-            imm = int(offset)
-
-        imm     = bin(int(imm))[2:]
-        pad_imm = cls.pad_binary(imm, 12)[2:]
+        imm_int = cls.parse_offset(offset)
+        imm_bin = bin(int(imm_int))[2:]
+        pad_imm = cls.pad_binary(imm_bin, 12)[2:]
+        
         # immediates bits are reversed to select the correct
         # subset of bits for different sub-fields
         rpad_imm = pad_imm[::-1]
@@ -417,33 +520,37 @@ class Assembler:
         rs2 = str(tmp[1]).replace(' ','')
         offset = str(tmp[2]).replace(' ', '')
 
+        if rs1[0] != 'x':
+            rs1 = cls.reg_name[rs1]
+
+        if rs2[0] != 'x':
+            rs2 = cls.reg_name[rs2]
+
         rs1_int = int(rs1[1:])
         rs2_int = int(rs2[1:])
 
-        # If this is a $LABEL then use `sym_table`.
-        if (offset[0] in '$'):
-            # Remove $LABEL : 0x00000000
+        # If this is a .LABEL then use `sym_table`.
+        if (offset[0] in '.'):
+            # Remove .LABEL:
             target_addr = sym_table[offset][2:]
-            offset = int(target_addr,16) - int(addr[2:],16)
+            offset = int(target_addr,16) - int(addr[2:],16)                    
             if offset < 0:
-                imm = cls.twos_complement(offset*-1)
+                imm_int = cls.twos_complement(offset*-1)
             else:
-                imm = int(offset)
-        # If offset sign is specified as `+34` OR `-21`.
-        elif offset[0] in ['+', '-']:
-            imm_sign = offset[0]
-            imm = int(offset[1:])
-            if imm_sign == '-':
-                imm = cls.twos_complement(imm)
-        # If no sign specified then it defaults to `+`.
+                imm_int = int(offset)
+        # Otherwise, the offset is specified as `34`, `+12`, or `-20`.
         else:
-            imm = int(offset)
+            imm_int = cls.parse_offset(offset)
 
-        imm = bin(int(imm))[2:]
-        pad_imm = cls.pad_binary(imm, 32)[2:]
+        imm_bin = bin(int(imm_int))[2:]
+        # The offsets are 13-bit values with the 0th bit being always set to 0, 
+        # 12 bits are explicitly written in the machine code, the one bit (the 0th bit)
+        # is ommitted. All branch offsets are multiple of 2.
+        pad_imm = cls.pad_binary(imm_bin, 12+1)[2:]
         # immediates bits are reversed to select the correct subset of bits for different sub-fields,
         # after selecting the correct sub-fields, the imm fields are reversed again
         rpad_imm = pad_imm[::-1]
+        print(rpad_imm)
 
         if cls.DEBUG:
             print(f"rs1: {rs1} :: rs2: {rs2} :: offset: {offset} :: imm'b: {pad_imm} ({len(pad_imm)}) :: rev_imm'b: {rpad_imm}")
@@ -464,18 +571,15 @@ class Assembler:
         rd  = str(tmp[0]).replace(' ','')
         offset = str(tmp[1]).replace(' ', '')
 
-        rd_int = int(rd[1:])
+        if rd[0] != 'x':
+            rd = cls.reg_name[rd]
 
-        if offset[0] in ['+', '-']:
-            imm_sign = offset[0]
-            imm = int(offset[1:])
-            if imm_sign == '-':
-                imm = cls.twos_complement(imm)
-        else:
-            imm = int(offset)
-        
-        imm     = bin(int(imm))[2:]
-        pad_imm = cls.pad_binary(imm, 20)[2:]
+        rd_int = int(rd[1:])
+    
+        imm_int = cls.parse_offset(offset)
+        imm_bin = bin(int(imm_int))[2:]
+        pad_imm = cls.pad_binary(imm_bin, 20)[2:]
+
         # immediates bits are reversed to select the correct subset of bits for different sub-fields,
         # after selecting the correct sub-fields, the imm fields are reversed again
         rpad_imm = pad_imm[::-1]
@@ -493,18 +597,18 @@ class Assembler:
         rd  = str(tmp[0]).replace(' ','')
         offset = str(tmp[1]).replace(' ', '')
 
+        if rd[0] != 'x':
+            rd = cls.reg_name[rd]
+
         rd_int = int(rd[1:])
 
-        if offset[0] in ['+', '-']:
-            imm_sign = offset[0]
-            imm = int(offset[1:])
-            if imm_sign == '-':
-                imm = cls.twos_complement(imm)
-        else:
-            imm = int(offset)
+        imm_int = cls.parse_offset(offset)
+        imm_bin = bin(int(imm_int))[2:]
+        # The offsets are 21-bit values with the 0th bit being always set to 0, 
+        # 20 bits are explicitly written in the machine code, the one bit (the 0th bit)
+        # is ommitted. All branch offsets are multiple of 2.
+        pad_imm = cls.pad_binary(imm_bin, 21)[2:]
 
-        imm = bin(int(imm))[2:]
-        pad_imm = cls.pad_binary(imm, 32)[2:]
         # immediates bits are reversed to select the correct
         # subset of bits for different sub-fields
         rpad_imm = pad_imm[::-1]
@@ -525,43 +629,71 @@ class Assembler:
         bin32 = '00000000000000000000000000000000'
 
         instr = instr.lstrip(' ')
+        instr = instr.lstrip('\t') 
         # split out the instruction from the remaining body
-        # add x1, x3, x29 ==> ['add', 'x1, x3, x29']
+        # add\tx1,x3,x29 ==> ['add', 'x1,x3,x29']
         instr_type = str(instr.split(' ', 1)[0])
         instr_body = str(instr.split(' ', 1)[1])
-        opcode = cls.dict_opcodes[instr_type]
-        bin32  = cls.write_reverse_bin(bin32, 0, 6, cls.dict_opcodes[instr_type])
+        
+        if (instr_type == 'li'):
+            tmp     = instr_body.split(',')
+            rd      = str(tmp[0]).replace(' ','')
+            offset  = str(tmp[1]).replace(' ','')    
 
-        # r-type instructions
-        if (instr_type in cls.instr_t['r']):
-            bin32 = cls.r_type(instr_type, instr_body, bin32)
-        # load instructions are decoded separately
-        elif (instr_type in ['lb', 'lh', 'lw', 'lbu', 'lhu']):
-            bin32 = cls.i_type_load(instr_type, instr_body, bin32)
-        # counter read instruction
-        elif (instr_type in ['cnt.rd']):
-            bin32 = cls.i_type_cnt_rd(instr_type, instr_body, bin32)
-        # counter write instructionQ
-        elif (instr_type in ['cnt.wr']):
-            bin32 = cls.i_type_cnt_wr(instr_type, instr_body, bin32)
-        # counter wfp instruction
-        elif (instr_type in ['cnt.wfp', 'cnt.wfo']):
-            bin32 = cls.i_type_cnt_wfx(instr_type, instr_body, bin32)
-        # all i-type instructions except loads
-        elif (instr_type in cls.instr_t['i']):
-            bin32 = cls.i_type_all_else(instr_type, instr_body, bin32)
-        # s-type (store) instructions
-        elif (instr_type in cls.instr_t['s']):
-            bin32 = cls.s_type(instr_type, instr_body, bin32)
-        # b-type (branch) instructions
-        elif (instr_type in cls.instr_t['b']):
-            bin32 = cls.b_type(addr, instr_type, instr_body, bin32, sym_table)
-        # u-type instructions
-        elif (instr_type in cls.instr_t['u']):
-            bin32 = cls.u_type(instr_type, instr_body, bin32)
-        # j-type instructions
-        elif (instr_type in cls.instr_t['j']):
-            bin32 = cls.j_type(instr_type, instr_body, bin32)
+            # n-bits can represents any signed number in [-2^{n-1}, 2^{n-1}-1].
+            # addi can be used to set upto 12 bits of a register.
+            # x in range(a,b) means a <= x < b.                
+            offset = int(offset)
+            if (offset not in range(-2048,2047)):
+                # To Do: For this case, when li needs lui to work.
+                pass
+            else: 
+                instr_type = 'addi'
+                instr_body = f"{rd},x0,{offset}"
+
+                opcode = cls.dict_opcodes[instr_type]
+                bin32  = cls.write_reverse_bin(bin32, 0, 6, cls.dict_opcodes[instr_type])
+                bin32 = cls.i_type_all_else(instr_type, instr_body, bin32)
+                
+
+        elif (instr_type == 'ble'):
+            pass
+        elif (instr_type == 'j'):
+            pass
+        else:
+            opcode = cls.dict_opcodes[instr_type]
+            bin32  = cls.write_reverse_bin(bin32, 0, 6, cls.dict_opcodes[instr_type])
+
+            # r-type instructions
+            if (instr_type in cls.instr_t['r']):
+                bin32 = cls.r_type(instr_type, instr_body, bin32)
+            # load instructions are decoded separately
+            elif (instr_type in ['lb', 'lh', 'lw', 'lbu', 'lhu']):
+                bin32 = cls.i_type_load(instr_type, instr_body, bin32)
+            # counter read instruction
+            elif (instr_type in ['cnt.rd']):
+                bin32 = cls.i_type_cnt_rd(instr_type, instr_body, bin32)
+            # counter write instructionQ
+            elif (instr_type in ['cnt.wr']):
+                bin32 = cls.i_type_cnt_wr(instr_type, instr_body, bin32)
+            # counter wfp instruction
+            elif (instr_type in ['cnt.wfp', 'cnt.wfo']):
+                bin32 = cls.i_type_cnt_wfx(instr_type, instr_body, bin32)
+            # all i-type instructions except loads
+            elif (instr_type in cls.instr_t['i']):
+                bin32 = cls.i_type_all_else(instr_type, instr_body, bin32)
+            # s-type (store) instructions
+            elif (instr_type in cls.instr_t['s']):
+                bin32 = cls.s_type(instr_type, instr_body, bin32)
+            # b-type (branch) instructions
+            elif (instr_type in cls.instr_t['b']):
+                bin32 = cls.b_type(addr, instr_type, instr_body, bin32, sym_table)
+            # u-type instructions
+            elif (instr_type in cls.instr_t['u']):
+                bin32 = cls.u_type(instr_type, instr_body, bin32)
+            # j-type instructions
+            elif (instr_type in cls.instr_t['j']):
+                bin32 = cls.j_type(instr_type, instr_body, bin32)
 
         hex4 = hex(int(bin32, 2))
         return hex4
