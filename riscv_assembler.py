@@ -3,15 +3,27 @@ import argparse
 from assembler import Assembler
 
 '''
+    This function removes any whitespace, tabs from the start of a string.
+    It also removes any trailing newlines at the end of a string.
+'''
+def clean_string(line):
+    line_o = line.lstrip(' ')
+    line_o = line.lstrip('\t')
+    line_o = line.replace('\n', '')
+    line_o = line.rstrip('\n')
+
+    return line_o
+
+'''
     This function will update the code with correct addressing.
 '''
 def fix_addressing_in_gcc_output(file_data):
     addr = -4
     for idx, line in enumerate(file_data):
-        line = line.lstrip(' ')
-        line = line.lstrip('\t')
-        line = line.replace('\n', '')
-        if (line[0] != '#'):
+        line = clean_string(line)
+        if (line == ''):
+            pass
+        elif (line[0] != '#'):
             # This line is either a label or a function lable.
             # .LABEL: 
             # FUNCT_LABEL:
@@ -39,10 +51,17 @@ def first_pass(file_data):
     # This line is a label.
     # .LABEL:
     for idx, line in enumerate(file_data):
-        if ((line.find(':')) != -1):      
-            line_str = str(line[:-1]).split(':')
+        line = clean_string(line)
+        # This line is a empty.
+        if (len(line) == 0):
+            pass
+        # This line is a comment.
+        elif (line[0] == '#'):
+            pass
+        # This line is a label.
+        elif ((line.find(':') != -1) and (line[0] == '.')):    
+            line_str = str(line).split(':')
             dict_lbl[line_str[0]] = line_str[1]
-
     return dict_lbl
 
 # for u-type, imm[31:20] = offset and imm[19:0] = 0
@@ -97,11 +116,20 @@ if __name__ == '__main__':
                 line = line.replace('\n', '')
                 line_str = str(line).split(':')
                 out = Assembler.assemble(addr=line_str[0],instr=line_str[1],sym_table=dict_lbl)
-                s = f'{line}:   \t{out}'            
-                print(f"{s}")
+                if out[0] == 'one':
+                    out = out[1]
+                    s = f'{line}:   \t{out}'
+                    print(f"{s}")
 
-                code_mem.append(out)
-                map_mem.append(s)
+                    code_mem.append(out)
+                    map_mem.append(s)
+                elif out[0] == 'two':
+                    out1 = out[1]
+                    out2 = out[2]
+                    s1 = f'{line}:   \t{out1}'
+                    s2 = f'{line}:   \t{out2}'
+                    print(f"{s1}")
+                    print(f"{s2}")
             else:
                 line = line[:-1]
                 print(f"{line}")
