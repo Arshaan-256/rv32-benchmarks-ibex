@@ -1,4 +1,6 @@
 # To do: add support for hex offset, right now all offsets must be input as decimal.
+# Add support for function calls. Function calls have labels as FUNCT_LABEL and not .FUNCT_LABEL.
+# The assembler cannot work with that as of now.
 class Assembler:
     DEBUG = False
 
@@ -167,7 +169,7 @@ class Assembler:
     b_funct3 = {
         'beq':  '000',
         'bne':  '001',
-        'blt':  '100',
+        # 'blt':  '100',
         'bge':  '101',
         'bltu': '110',
         'bgeu': '111',
@@ -177,11 +179,12 @@ class Assembler:
         'r': ['add', 'sub', 'sll', 'slt', 'sltu', 'xor', 'srl', 'sra', 'or', 'and', 
               'mul', 'mulhu', 'mulhsu', 'div', 'divu'],
         'i': ['addi', 'slti', 'sltiu', 'xori', 'ori', 'andi', 'slli', 'srli', 'srai', 
-              'lb', 'lh', 'lw', 'lbu', 'lhu', 'jalr', 'cnt.rd', 'cnt.wr'],
+              'lb', 'lh', 'lw', 'lbu', 'lhu', 'jalr', 'cnt.rd', 'cnt.wr', 'cnt.wfp', 'cnt.wfo'],
         's': ['sb', 'sh', 'sw'],
         'b': ['beq', 'bne', 'blt', 'bge', 'bltu', 'bgeu'],
         'u': ['lui', 'auipc'],
-        'j': ['jal']
+        'j': ['jal'],
+        'pseudo': ['li', 'mv', 'ble', 'bgtu', 'j']
     }
 
     XLEN = 32
@@ -195,12 +198,28 @@ class Assembler:
     '''
     @classmethod
     def clean_string(cls, line):
-        line_o = line.lstrip(' ')
-        line_o = line.lstrip('\t')
-        line_o = line.replace('\n', '')
-        line_o = line.rstrip('\n')
+        line = line.lstrip(' ')
+        line = line.lstrip('\t')
+        line = line.lstrip('\n')
+        line = line.rstrip('\n')
 
-        return line_o
+        return line
+
+    '''
+        Split out the instruction from the remaining body.
+        E.g. add x1,x3,x29 ==> ['add', 'x1,x3,x29']
+
+        This function does not verify the correctness of the instruction.
+    '''
+    @classmethod
+    def split_instr(cls, instr):
+        instr_type = str(instr.split(' ', 1)[0])
+        instr_type = cls.clean_string(instr_type)
+
+        instr_body = str(instr.split(' ', 1)[1])
+        instr_body = cls.clean_string(instr_body)
+
+        return [instr_type, instr_body]
 
     '''
         pad_binary('010_1111',12) 
@@ -487,6 +506,24 @@ class Assembler:
             bin32   = cls.write_reverse_bin(bin32, 20, 31, imm_bin)
         return bin32
 
+    @classmethod 
+    def i_type(cls, instr_type, instr_body, bin32):
+        if (instr_type in ['lb', 'lh', 'lw', 'lbu', 'lhu']):
+            bin32 = cls.i_type_load(instr_type, instr_body, bin32)
+        # counter read instruction
+        elif (instr_type in ['cnt.rd']):
+            bin32 = cls.i_type_cnt_rd(instr_type, instr_body, bin32)
+        # counter write instructionQ
+        elif (instr_type in ['cnt.wr']):
+            bin32 = cls.i_type_cnt_wr(instr_type, instr_body, bin32)
+        # counter wfp instruction
+        elif (instr_type in ['cnt.wfp', 'cnt.wfo']):
+            bin32 = cls.i_type_cnt_wfx(instr_type, instr_body, bin32)
+        # all i-type instructions except loads and pmu-specific ones
+        elif (instr_type in cls.instr_t['i']):
+            bin32 = cls.i_type_all_else(instr_type, instr_body, bin32)        
+        return bin32
+
     @classmethod
     def s_type(cls, instr_type, instr_body, bin32):
         # sw rs2, offset(rs1)
@@ -648,36 +685,25 @@ class Assembler:
             print(f"rd: {rd} :: offset: {offset} :: imm'b: {pad_imm} ({len(pad_imm)}) :: rev_imm'b: {rpad_imm}")
         return bin32
 
-    @classmethod 
-    def second_pass(cls):
-        pass
-    
     @classmethod
-    # `addr` should be in HEX-format as `0x00000000`.
-    def assemble(cls, addr, instr, sym_table):
-        bin32 = '00000000000000000000000000000000'
+    def replace_pseudo(cls, instr):
+        instr_type, instr_body = cls.split_instr(instr)
 
-        instr = instr.lstrip(' ')
-        instr = instr.lstrip('\t') 
-        # split out the instruction from the remaining body
-        # add\tx1,x3,x29 ==> ['add', 'x1,x3,x29']
-        instr_type = str(instr.split(' ', 1)[0])
-        instr_body = str(instr.split(' ', 1)[1])
-        
-        # li rd, imm
+        # li rd, imm        
         if (instr_type == 'li'):
             # Split all components of the instruction.
             tmp     = instr_body.split(',')
             rd      = str(tmp[0]).replace(' ','')
             offset  = str(tmp[1]).replace(' ','')    
 
-            # n-bits can represents any signed number in [-2^{n-1}, 2^{n-1}-1].
-            # addi can be used to set upto 12 bits of a register.
-            # x in range(a,b) means a <= x < b.
+            # N-bits can represents any signed number in [-2^{n-1}, 2^{n-1}-1].
+            # `addi` can be used to set upto 12 bits of a register.
+            # The immediate range is [-2048, 2047].            
             offset = int(offset)
 
-            # Check if offset can be loaded directly using addi, 
+            # Check if offset can be loaded directly using `addi`, 
             # if offset is between [-2048,2047] then yes.
+            # x in range(a,b) means a <= x < b.
             if (offset not in range(-2048,2048)):              
                 # If no, then use lui and addi combination.
                 # lui will load the upper 20-bits, addi will load the lower 12-bits.
@@ -694,28 +720,20 @@ class Assembler:
                     lui_offset = lui_offset + 1       
 
                 instr_type = 'lui'
-                instr_body = f"{rd},{lui_offset}"
-                opcode = cls.dict_opcodes[instr_type]
-                bin32  = cls.write_reverse_bin(bin32, 0, 6, cls.dict_opcodes[instr_type])
-                bin32  = cls.u_type(instr_type, instr_body, bin32)
-                instr1 = hex(int(bin32, 2))
+                instr_body = f"{rd},{lui_offset}"                
+                instr_1    = f"{instr_type} {instr_body}"
 
                 instr_type = 'addi'
                 instr_body = f"{rd},x0,{addi_offset}"
-                opcode = cls.dict_opcodes[instr_type]
-                bin32  = cls.write_reverse_bin(bin32, 0, 6, cls.dict_opcodes[instr_type])
-                bin32  = cls.i_type_all_else(instr_type, instr_body, bin32)
-                instr2 = hex(int(bin32, 2))
+                instr_2    = f"{instr_type} {instr_body}"
 
-                return ["two", instr1, instr2]
+                return [2, instr_1, instr_2]
             else:
                 # 
                 instr_type = 'addi'
                 instr_body = f"{rd},x0,{offset}"
-
-                opcode = cls.dict_opcodes[instr_type]
-                bin32  = cls.write_reverse_bin(bin32, 0, 6, cls.dict_opcodes[instr_type])
-                bin32  = cls.i_type_all_else(instr_type, instr_body, bin32)
+                instr      = f"{instr_type} {instr_body}"
+                return [1, instr]
 
         # mv rd,rs1
         # Same as: addi rd,rs1,0
@@ -727,10 +745,9 @@ class Assembler:
 
             instr_type = 'addi'
             instr_body = f'{rd},{rs1},0'
-            opcode = cls.dict_opcodes[instr_type]
-            bin32  = cls.write_reverse_bin(bin32, 0, 6, cls.dict_opcodes[instr_type])
-            bin32  = cls.i_type_all_else(instr_type, instr_body, bin32)
-            
+            instr      = f"{instr_type} {instr_body}"
+            return [1, instr]
+
         # ble rs1,rs2,offset
         # Same as: bge rs2,rs1,offset
         elif (instr_type == 'ble'):
@@ -744,10 +761,8 @@ class Assembler:
             # bge rs2,rs1,label => if (rs2 >= rs1) then jump
             instr_type = 'bge'
             instr_body = f'{rs2},{rs1},{offset}'
-
-            opcode = cls.dict_opcodes[instr_type]
-            bin32  = cls.write_reverse_bin(bin32, 0, 6, cls.dict_opcodes[instr_type])
-            bin32  = cls.b_type(addr, instr_type, instr_body, bin32, sym_table)
+            instr      = f"{instr_type} {instr_body}"
+            return [1, instr]
 
         # bgtu rs1,rs2,offset
         # Same as: bltu rs2,rs1,offset
@@ -760,10 +775,8 @@ class Assembler:
             
             instr_type = 'bltu'
             instr_body = f'{rs2},{rs1},{offset}'
-
-            opcode = cls.dict_opcodes[instr_type]
-            bin32  = cls.write_reverse_bin(bin32, 0, 6, cls.dict_opcodes[instr_type])
-            bin32  = cls.b_type(addr, instr_type, instr_body, bin32, sym_table)
+            instr      = f"{instr_type} {instr_body}"
+            return [1, instr]
 
         # j offset        
         elif (instr_type == 'j'):
@@ -773,47 +786,109 @@ class Assembler:
 
             instr_type = 'jal'
             instr_body = f'x0,{offset}'
-            opcode = cls.dict_opcodes[instr_type]
-            bin32  = cls.write_reverse_bin(bin32, 0, 6, cls.dict_opcodes[instr_type])
-            bin32 = cls.j_type(addr, instr_type, instr_body, bin32, sym_table)
-
+            instr      = f"{instr_type} {instr_body}"
+            return [1, instr]
+        
         else:
-            opcode = cls.dict_opcodes[instr_type]
-            bin32  = cls.write_reverse_bin(bin32, 0, 6, cls.dict_opcodes[instr_type])
+            print("Hey buddy! You know pseudo-instructions have meaning, right?")
+            raise Exception(f'What the hell is {instr_type}?')
+    
+    @classmethod
+    # `addr` should be in HEX-format as `0x00000000`.
+    def assemble(cls, addr, instr, sym_table):
+        bin32 = '00000000000000000000000000000000'
 
-            # r-type instructions
-            if (instr_type in cls.instr_t['r']):
-                bin32 = cls.r_type(instr_type, instr_body, bin32)
-            # load instructions are decoded separately
-            elif (instr_type in ['lb', 'lh', 'lw', 'lbu', 'lhu']):
-                bin32 = cls.i_type_load(instr_type, instr_body, bin32)
-            # counter read instruction
-            elif (instr_type in ['cnt.rd']):
-                bin32 = cls.i_type_cnt_rd(instr_type, instr_body, bin32)
-            # counter write instructionQ
-            elif (instr_type in ['cnt.wr']):
-                bin32 = cls.i_type_cnt_wr(instr_type, instr_body, bin32)
-            # counter wfp instruction
-            elif (instr_type in ['cnt.wfp', 'cnt.wfo']):
-                bin32 = cls.i_type_cnt_wfx(instr_type, instr_body, bin32)
-            # all i-type instructions except loads
-            elif (instr_type in cls.instr_t['i']):
-                bin32 = cls.i_type_all_else(instr_type, instr_body, bin32)
-            # s-type (store) instructions
-            elif (instr_type in cls.instr_t['s']):
-                bin32 = cls.s_type(instr_type, instr_body, bin32)
-            # b-type (branch) instructions
-            elif (instr_type in cls.instr_t['b']):
-                bin32 = cls.b_type(addr, instr_type, instr_body, bin32, sym_table)
-            # u-type instructions
-            elif (instr_type in cls.instr_t['u']):
-                bin32 = cls.u_type(instr_type, instr_body, bin32)
-            # j-type instructions
-            elif (instr_type in cls.instr_t['j']):
-                bin32 = cls.j_type(addr, instr_type, instr_body, bin32, sym_table)
+        # Remove all starting and trailing whitespaces, tabs, and newlines.
+        instr = cls.clean_string(instr)
 
+        instr_type, instr_body = cls.split_instr(instr)
+        opcode = cls.dict_opcodes[instr_type]
+        bin32  = cls.write_reverse_bin(bin32, 0, 6, cls.dict_opcodes[instr_type])
+
+        # r-type instructions
+        if (instr_type in cls.instr_t['r']):
+            bin32 = cls.r_type(instr_type, instr_body, bin32)
+        # i-type instructions
+        elif (instr_type in cls.instr_t['i']):
+            bin32 = cls.i_type(instr_type, instr_body, bin32)
+        # s-type (store) instructions
+        elif (instr_type in cls.instr_t['s']):
+            bin32 = cls.s_type(instr_type, instr_body, bin32)
+        # b-type (branch) instructions
+        elif (instr_type in cls.instr_t['b']):
+            bin32 = cls.b_type(addr, instr_type, instr_body, bin32, sym_table)
+        # u-type instructions
+        elif (instr_type in cls.instr_t['u']):
+            bin32 = cls.u_type(instr_type, instr_body, bin32)
+        # j-type instructions
+        elif (instr_type in cls.instr_t['j']):
+            bin32 = cls.j_type(addr, instr_type, instr_body, bin32, sym_table)
+        else:
+            print('I see you like inventing new instructions as well.')
+            raise Exception(f'What the hell is {instr_type}?')
+
+        # 32-bits are converted into 4-digit Hexadecimal number.
         hex4 = hex(int(bin32, 2))
-        return ['one',hex4]
+        return hex4
+
+    '''
+        This function will update the code with correct addressing.
+        It will also replace all pseudo-instructions with actual RISC-V instructions.
+    '''
+    @classmethod
+    def zero_pass(cls, file_data, DEBUG=0):
+        addr = 0
+        file_data_o = list()
+        # Indicates that the file has already completed zero_pass.
+        file_data_o.append("#ZERO_PASS_COMPLETED")
+        for idx, line in enumerate(file_data):
+            line = cls.clean_string(line)
+            if (line == '') or (line[0] == '#'):
+                # This line is either empty or a comment.
+                out = line
+            elif (line[0] != '#'):
+                # This line is either a label or a function lable.
+                # .LABEL:
+                # FUNCT_LABEL:
+                if ((line.find(':')) != -1):
+                    zfill_addr = hex(addr)[2:].zfill(8)
+                    zfill_addr = '0x' + zfill_addr
+                    if (line[0] == '.'):
+                        # Ignoring the ':' at end of `line`.
+                        out = f"\n{line[:-1]}:{zfill_addr}"
+                    else:
+                        # Ignoring the ':' at end of `line`.
+                        out = f"\n.{line[:-1]}:{zfill_addr}"
+
+                # This line is a RISC-V instruction.
+                # GCC output has instructions of the format: addi\tx1,x0,x2.
+                # Replace tabs with whitespace.
+                else:                                    
+                    instr      = line.replace('\t',' ')
+                    # Now, get rid of all trailing and starting whitespaces, tabs, newlines.
+                    instr      = cls.clean_string(instr)                                        
+                    instr_type, instr_body = cls.split_instr(instr)
+                    
+                    # If pseudo-isntruction then replace it with actual RISC-V instruction.
+                    # Comment the original pseudo-instruction for debugging.    
+                    if (instr_type in cls.instr_t['pseudo']):
+                        out = f"# {instr}"
+                        tmp = cls.replace_pseudo(instr)
+
+                        for i in range(tmp[0]):
+                            zfill_addr = hex(addr)[2:].zfill(8)
+                            out       += f"\n0x{zfill_addr}:\t{tmp[i+1]}"
+                            addr       = addr + 4
+
+                    else:
+                        zfill_addr = hex(addr)[2:].zfill(8)
+                        out        = f"0x{zfill_addr}:\t{instr}"
+                        addr       = addr + 4
+
+            # if (DEBUG > 1):
+            print(out)
+            file_data_o.append(out)
+        return file_data_o
 
     '''
         Generate a symbol table by processing over the code.
@@ -839,3 +914,7 @@ class Assembler:
                 line_str = str(line_o).split(':')
                 dict_lbl[line_str[0]] = line_str[1]
         return dict_lbl
+
+    @classmethod 
+    def second_pass(cls):
+        pass
