@@ -190,6 +190,19 @@ class Assembler:
         return
 
     '''
+        This function removes any whitespace, tabs from the start of a string.
+        It also removes any trailing newlines at the end of a string.
+    '''
+    @classmethod
+    def clean_string(cls, line):
+        line_o = line.lstrip(' ')
+        line_o = line.lstrip('\t')
+        line_o = line.replace('\n', '')
+        line_o = line.rstrip('\n')
+
+        return line_o
+
+    '''
         pad_binary('010_1111',12) 
         => '0b0000_0010_1111'
 
@@ -635,6 +648,10 @@ class Assembler:
             print(f"rd: {rd} :: offset: {offset} :: imm'b: {pad_imm} ({len(pad_imm)}) :: rev_imm'b: {rpad_imm}")
         return bin32
 
+    @classmethod 
+    def second_pass(cls):
+        pass
+    
     @classmethod
     # `addr` should be in HEX-format as `0x00000000`.
     def assemble(cls, addr, instr, sym_table):
@@ -656,20 +673,66 @@ class Assembler:
 
             # n-bits can represents any signed number in [-2^{n-1}, 2^{n-1}-1].
             # addi can be used to set upto 12 bits of a register.
-            # x in range(a,b) means a <= x < b.                
+            # x in range(a,b) means a <= x < b.
             offset = int(offset)
-            if (offset not in range(-2048,2047)):
-                # To Do: For this case, when li needs lui to work.
-                pass
-            else: 
+
+            # Check if offset can be loaded directly using addi, 
+            # if offset is between [-2048,2047] then yes.
+            if (offset not in range(-2048,2048)):              
+                # If no, then use lui and addi combination.
+                # lui will load the upper 20-bits, addi will load the lower 12-bits.
+
+                # li-offset = { lui-offset      , addi-offset       }
+                #           = { li-offset >> 12 , li=offset & 0xFFF }
+                # 32-bits   = { 20-bits         , 12-bits           }
+
+                # If MSB of the addi-offset is 1 then +1 to lui-offset.
+                # Else don't.
+                lui_offset  = (offset >> 12)
+                addi_offset = (offset & 0xFFF)
+                if (offset & 0x800 == 0x800):
+                    lui_offset = lui_offset + 1       
+
+                instr_type = 'lui'
+                instr_body = f"{rd},{lui_offset}"
+                opcode = cls.dict_opcodes[instr_type]
+                bin32  = cls.write_reverse_bin(bin32, 0, 6, cls.dict_opcodes[instr_type])
+                bin32  = cls.u_type(instr_type, instr_body, bin32)
+                instr1 = hex(int(bin32, 2))
+
+                instr_type = 'addi'
+                instr_body = f"{rd},x0,{addi_offset}"
+                opcode = cls.dict_opcodes[instr_type]
+                bin32  = cls.write_reverse_bin(bin32, 0, 6, cls.dict_opcodes[instr_type])
+                bin32  = cls.i_type_all_else(instr_type, instr_body, bin32)
+                instr2 = hex(int(bin32, 2))
+
+                return ["two", instr1, instr2]
+            else:
+                # 
                 instr_type = 'addi'
                 instr_body = f"{rd},x0,{offset}"
 
                 opcode = cls.dict_opcodes[instr_type]
                 bin32  = cls.write_reverse_bin(bin32, 0, 6, cls.dict_opcodes[instr_type])
-                bin32 = cls.i_type_all_else(instr_type, instr_body, bin32)                
+                bin32  = cls.i_type_all_else(instr_type, instr_body, bin32)
 
+        # mv rd,rs1
+        # Same as: addi rd,rs1,0
+        elif (instr_type == 'mv'):
+            # Split all components of the instruction.
+            tmp = instr_body.split(',')
+            rd  = str(tmp[0]).replace(' ','')
+            rs1 = str(tmp[1]).replace(' ','')
+
+            instr_type = 'addi'
+            instr_body = f'{rd},{rs1},0'
+            opcode = cls.dict_opcodes[instr_type]
+            bin32  = cls.write_reverse_bin(bin32, 0, 6, cls.dict_opcodes[instr_type])
+            bin32  = cls.i_type_all_else(instr_type, instr_body, bin32)
+            
         # ble rs1,rs2,offset
+        # Same as: bge rs2,rs1,offset
         elif (instr_type == 'ble'):
             # Split all components of the instruction.
             tmp = instr_body.split(',')
@@ -684,7 +747,23 @@ class Assembler:
 
             opcode = cls.dict_opcodes[instr_type]
             bin32  = cls.write_reverse_bin(bin32, 0, 6, cls.dict_opcodes[instr_type])
-            bin32 = cls.b_type(addr, instr_type, instr_body, bin32, sym_table)
+            bin32  = cls.b_type(addr, instr_type, instr_body, bin32, sym_table)
+
+        # bgtu rs1,rs2,offset
+        # Same as: bltu rs2,rs1,offset
+        elif (instr_type == 'bgtu'):
+            # Split all components of the instruction.
+            tmp = instr_body.split(',')
+            rs1 = str(tmp[0]).replace(' ','')
+            rs2 = str(tmp[1]).replace(' ','')
+            offset = str(tmp[2]).replace(' ', '')           
+            
+            instr_type = 'bltu'
+            instr_body = f'{rs2},{rs1},{offset}'
+
+            opcode = cls.dict_opcodes[instr_type]
+            bin32  = cls.write_reverse_bin(bin32, 0, 6, cls.dict_opcodes[instr_type])
+            bin32  = cls.b_type(addr, instr_type, instr_body, bin32, sym_table)
 
         # j offset        
         elif (instr_type == 'j'):
@@ -734,4 +813,29 @@ class Assembler:
                 bin32 = cls.j_type(addr, instr_type, instr_body, bin32, sym_table)
 
         hex4 = hex(int(bin32, 2))
-        return hex4
+        return ['one',hex4]
+
+    '''
+        Generate a symbol table by processing over the code.
+        This symbol table is used to calculate branch and jump offsets during the second pass.
+    '''
+    @classmethod
+    def first_pass(cls, program):
+        dict_lbl = dict()
+        # The following line is a label.
+        # .LABEL:
+        for idx, line in enumerate(program):
+            line_o = cls.clean_string(line)
+            # This line is a empty.
+            if (len(line_o) == 0):
+                pass
+            # This line is a comment.
+            elif (line_o[0] == '#'):
+                pass
+            # This line is a label.
+            elif (line_o[0] == '.'):
+                if (line.find(':')):
+                    raise Exception("Label found without addressing information.")
+                line_str = str(line_o).split(':')
+                dict_lbl[line_str[0]] = line_str[1]
+        return dict_lbl
