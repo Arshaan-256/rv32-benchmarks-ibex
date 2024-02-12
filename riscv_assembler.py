@@ -14,38 +14,6 @@ def clean_string(line):
 
     return line_o
 
-'''
-    This function will update the code with correct addressing.
-'''
-def fix_addressing_in_gcc_output(file_data):
-    addr = -4
-    for idx, line in enumerate(file_data):
-        line = clean_string(line)
-        if (line == ''):
-            pass
-        elif (line[0] != '#'):
-            # This line is either a label or a function lable.
-            # .LABEL: 
-            # FUNCT_LABEL:
-            if ((line.find(':')) != -1):
-                zfill_addr      = hex(addr+4)[2:].zfill(8)
-                zfill_addr      = '0x' + zfill_addr
-                # Ignoring the ':' at end.
-                if (line[0] == '.'):
-                    file_data[idx]  = f"\n{line[:-1]}:{zfill_addr}"
-                else:
-                    file_data[idx]  = f"\n.{line[:-1]}:{zfill_addr}"
-            # This line is a RISC-V instruction.
-            else:                
-                addr = addr + 4
-                line            = line.replace('\t',' ')
-                zfill_addr      = hex(addr)[2:].zfill(8)
-                file_data[idx]  = f"0x{zfill_addr}:\t{line}"
-        else:
-            file_data[idx]  = line
-        print(file_data[idx])
-    return file_data
-
 def first_pass(file_data):
     dict_lbl = dict()
     # This line is a label.
@@ -74,7 +42,7 @@ if __name__ == '__main__':
     parser.add_argument('--mode', help='What mode are you running in: fix or assemble?')
 
     # Define command-line arguments
-    parser.add_argument('--file', help='What is filename?')
+    parser.add_argument('--file', help='What is the filename?')
 
     # Parse the command-line arguments
     args = parser.parse_args()
@@ -90,7 +58,8 @@ if __name__ == '__main__':
 
     if (mode == 'FIX'):
         # Fix addressing in code file.
-        file_data = fix_addressing_in_gcc_output(file_data)
+        # file_data = fix_addressing_in_gcc_output(file_data)
+        file_data = Assembler.zero_pass(file_data)
 
         # Save new code file.
         filename_write = f'{filename}.new'
@@ -115,21 +84,12 @@ if __name__ == '__main__':
             if (line != '\n') and (line[0] != '#') and (line[0] != '.'):
                 line = line.replace('\n', '')
                 line_str = str(line).split(':')
-                out = Assembler.assemble(addr=line_str[0],instr=line_str[1],sym_table=dict_lbl)
-                if out[0] == 'one':
-                    out = out[1]
-                    s = f'{line}:   \t{out}'
-                    print(f"{s}")
+                out = Assembler.assemble(addr=line_str[0],instr=line_str[1],sym_table=dict_lbl)                
+                s = f'{line}:   \t{out}'
+                print(f"{s}")
 
-                    code_mem.append(out)
-                    map_mem.append(s)
-                elif out[0] == 'two':
-                    out1 = out[1]
-                    out2 = out[2]
-                    s1 = f'{line}:   \t{out1}'
-                    s2 = f'{line}:   \t{out2}'
-                    print(f"{s1}")
-                    print(f"{s2}")
+                code_mem.append(out)
+                map_mem.append(s)            
             else:
                 line = line[:-1]
                 print(f"{line}")
