@@ -184,7 +184,7 @@ class Assembler:
         'b': ['beq', 'bne', 'blt', 'bge', 'bltu', 'bgeu'],
         'u': ['lui', 'auipc'],
         'j': ['jal'],
-        'pseudo': ['li', 'mv', 'ble', 'bgtu', 'j']
+        'pseudo': ['li', 'mv', 'ble', 'bgtu', 'bleu', 'j']
     }
 
     XLEN = 32
@@ -723,6 +723,10 @@ class Assembler:
                 instr_body = f"{rd},{lui_offset}"                
                 instr_1    = f"{instr_type} {instr_body}"
 
+                # If there is no offset for addi, then skip it.
+                if (addi_offset == 0):
+                    return [1, instr_1]
+
                 instr_type = 'addi'
                 instr_body = f"{rd},x0,{addi_offset}"
                 instr_2    = f"{instr_type} {instr_body}"
@@ -774,6 +778,20 @@ class Assembler:
             offset = str(tmp[2]).replace(' ', '')           
             
             instr_type = 'bltu'
+            instr_body = f'{rs2},{rs1},{offset}'
+            instr      = f"{instr_type} {instr_body}"
+            return [1, instr]
+
+        # bleu rs1,rs2,offset
+        # Same as: bgeu rs2,rs1,offset
+        elif (instr_type == 'bleu'):
+            # Split all components of the instruction.
+            tmp = instr_body.split(',')
+            rs1 = str(tmp[0]).replace(' ','')
+            rs2 = str(tmp[1]).replace(' ','')
+            offset = str(tmp[2]).replace(' ', '')           
+            
+            instr_type = 'bgeu'
             instr_body = f'{rs2},{rs1},{offset}'
             instr      = f"{instr_type} {instr_body}"
             return [1, instr]
@@ -837,8 +855,11 @@ class Assembler:
     '''
     @classmethod
     def zero_pass(cls, file_data, DEBUG=0):
+        if (file_data[0] == "#ZERO_PASS_COMPLETED\n"):
+            raise Exception("Cannot run zero-pass twice!")
         addr = 0
         file_data_o = list()
+
         # Indicates that the file has already completed zero_pass.
         file_data_o.append("#ZERO_PASS_COMPLETED")
         for idx, line in enumerate(file_data):
