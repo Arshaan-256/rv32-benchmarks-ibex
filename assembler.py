@@ -169,7 +169,7 @@ class Assembler:
     b_funct3 = {
         'beq':  '000',
         'bne':  '001',
-        # 'blt':  '100',
+        'blt':  '100',
         'bge':  '101',
         'bltu': '110',
         'bgeu': '111',
@@ -184,7 +184,7 @@ class Assembler:
         'b': ['beq', 'bne', 'blt', 'bge', 'bltu', 'bgeu'],
         'u': ['lui', 'auipc'],
         'j': ['jal'],
-        'pseudo': ['li', 'mv', 'ble', 'bgtu', 'bleu', 'j']
+        'pseudo': ['li', 'mv', 'ble', 'bgt', 'bgtu', 'bleu', 'seqz', 'sgtu', 'j']
     }
 
     XLEN = 32
@@ -768,6 +768,20 @@ class Assembler:
             instr      = f"{instr_type} {instr_body}"
             return [1, instr]
 
+        # bgt rs1,rs2,offset
+        # Same as: blt rs2,rs1,offset
+        elif (instr_type == 'bgt'):
+            # Split all components of the instruction.
+            tmp = instr_body.split(',')
+            rs1 = str(tmp[0]).replace(' ','')
+            rs2 = str(tmp[1]).replace(' ','')
+            offset = str(tmp[2]).replace(' ', '')           
+            
+            instr_type = 'blt'
+            instr_body = f'{rs2},{rs1},{offset}'
+            instr      = f"{instr_type} {instr_body}"
+            return [1, instr]
+
         # bgtu rs1,rs2,offset
         # Same as: bltu rs2,rs1,offset
         elif (instr_type == 'bgtu'):
@@ -796,6 +810,33 @@ class Assembler:
             instr      = f"{instr_type} {instr_body}"
             return [1, instr]
 
+        # seqz rd,rs1
+        # Same as: sltiu rd,rs,1
+        elif (instr_type == 'seqz'):
+            # Split all components of the instruction.
+            tmp = instr_body.split(',')
+            rd = str(tmp[0]).replace(' ','')
+            rs1 = str(tmp[1]).replace(' ','')
+
+            instr_type = 'sltiu'
+            instr_body = f'{rd},{rs1},1'
+            instr      = f"{instr_type} {instr_body}"
+            return [1, instr]
+
+        # sgtu rd,rs1,rs2
+        # Same as: sltu rd,rs2,rs1
+        elif (instr_type == 'sgtu'):
+            # Split all components of the instruction.
+            tmp = instr_body.split(',')
+            rd  = str(tmp[0]).replace(' ','')
+            rs1 = str(tmp[1]).replace(' ','')
+            rs2 = str(tmp[2]).replace(' ','')
+
+            instr_type = 'sltu'
+            instr_body = f'{rd},{rs2},{rs1}'
+            instr      = f"{instr_type} {instr_body}"
+            return [1, instr]
+        
         # j offset        
         elif (instr_type == 'j'):
             # Split all components of the instruction.
