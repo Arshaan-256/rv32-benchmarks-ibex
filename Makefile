@@ -5,12 +5,14 @@ help:     ## Show this help.
 	sed -ne '/@sed/!s/## //p' $(MAKEFILE_LIST)
 
 clean: #OK.
-	rm -f *.x
-	rm -f *.map
-	rm -f *.new
-	rm -f */*.x
-	rm -f */*.map
-	rm -f */*.new
+	rm -f program.x
+	rm -f program.map
+# rm -f *.x
+# rm -f *.map
+# rm -f *.new
+# rm -f */*.x
+# rm -f */*.map
+# rm -f */*.new
 
 assemble:
 ## Run second pass of the assembler.
