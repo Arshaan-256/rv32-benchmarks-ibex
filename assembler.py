@@ -84,6 +84,8 @@ class Assembler:
         'mulhsu':   '0110011',
         'div':      '0110011',
         'divu':     '0110011',
+        'rem':      '0110011',
+        'remu':     '0110011',        
         # counter-operations
         'cnt.rd':   '0000111',
         'cnt.wr':   '0000111',
@@ -108,6 +110,8 @@ class Assembler:
         'mulhsu':   '010',
         'div':      '100',
         'divu':     '101',
+        'rem':      '110',
+        'remu':     '111',
         # counter-operations
         'cnt.wfp':  '010',
         'cnt.wfo':  '010'
@@ -130,6 +134,8 @@ class Assembler:
         'mulhsu':   '0000001',
         'div':      '0000001',
         'divu':     '0000001',
+        'rem':      '0000001',
+        'remu':     '0000001',
         # counter-operations
         'cnt.wfp':  '0000000',
         'cnt.wfo':  '0000001'
