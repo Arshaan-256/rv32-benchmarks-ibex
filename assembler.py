@@ -183,7 +183,7 @@ class Assembler:
 
     instr_t = {
         'r': ['add', 'sub', 'sll', 'slt', 'sltu', 'xor', 'srl', 'sra', 'or', 'and', 
-              'mul', 'mulhu', 'mulhsu', 'div', 'divu'],
+              'mul', 'mulhu', 'mulhsu', 'div', 'divu', 'rem', 'remu'],
         'i': ['addi', 'slti', 'sltiu', 'xori', 'ori', 'andi', 'slli', 'srli', 'srai', 
               'lb', 'lh', 'lw', 'lbu', 'lhu', 'jalr', 'cnt.rd', 'cnt.wr', 'cnt.wfp', 'cnt.wfo'],
         's': ['sb', 'sh', 'sw'],
