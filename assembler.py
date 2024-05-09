@@ -606,7 +606,6 @@ class Assembler:
         # immediates bits are reversed to select the correct subset of bits for different sub-fields,
         # after selecting the correct sub-fields, the imm fields are reversed again
         rpad_imm = pad_imm[::-1]
-        print(rpad_imm)
 
         if cls.DEBUG:
             print(f"rs1: {rs1} :: rs2: {rs2} :: offset: {offset} :: imm'b: {pad_imm} ({len(pad_imm)}) :: rev_imm'b: {rpad_imm}")
