@@ -759,7 +759,7 @@ class Assembler:
             rs1 = str(tmp[1]).replace(' ','')
 
             instr_type = 'sub'
-            instr_body = f'{rd},0,{rs1}'
+            instr_body = f'{rd},x0,{rs1}'
             instr      = f"{instr_type} {instr_body}"
             return [1, instr]
 
