@@ -190,7 +190,7 @@ class Assembler:
         'b': ['beq', 'bne', 'blt', 'bge', 'bltu', 'bgeu'],
         'u': ['lui', 'auipc'],
         'j': ['jal'],
-        'pseudo': ['li', 'mv', 'ble', 'bgt', 'bgtu', 'bleu', 'seqz', 'sgtu', 'j']
+        'pseudo': ['li', 'mv', 'neg', 'ble', 'bgt', 'bgtu', 'bleu', 'seqz', 'sgtu', 'j']
     }
 
     XLEN = 32
@@ -690,6 +690,12 @@ class Assembler:
             print(f"rd: {rd} :: offset: {offset} :: imm'b: {pad_imm} ({len(pad_imm)}) :: rev_imm'b: {rpad_imm}")
         return bin32
 
+    """
+        This function converts pseudo-instructions into standard RISC-V instructions.
+        It reutrns a list with two or more elements: [a, b, c, ...]
+            a       -  Number of instructions that are being added to replace the pseudo-instruction.
+            b,c,... -  The instructions that being used to replace the pseudo-instructions, must be equal to `a`.
+    """
     @classmethod
     def replace_pseudo(cls, instr):
         instr_type, instr_body = cls.split_instr(instr)
@@ -699,7 +705,7 @@ class Assembler:
             # Split all components of the instruction.
             tmp     = instr_body.split(',')
             rd      = str(tmp[0]).replace(' ','')
-            offset  = str(tmp[1]).replace(' ','')    
+            offset  = str(tmp[1]).replace(' ','')
 
             # N-bits can represents any signed number in [-2^{n-1}, 2^{n-1}-1].
             # `addi` can be used to set upto 12 bits of a register.
@@ -743,6 +749,19 @@ class Assembler:
                 instr_body = f"{rd},x0,{offset}"
                 instr      = f"{instr_type} {instr_body}"
                 return [1, instr]
+
+        # neg rd,rs1
+        # Same as: sub rd, zero, rs
+        elif (instr_type == 'neg'):
+            # Split all components of the instruction.
+            tmp = instr_body.split(',')
+            rd  = str(tmp[0]).replace(' ','')
+            rs1 = str(tmp[1]).replace(' ','')
+
+            instr_type = 'sub'
+            instr_body = f'{rd},0,{rs1}'
+            instr      = f"{instr_type} {instr_body}"
+            return [1, instr]
 
         # mv rd,rs1
         # Same as: addi rd,rs1,0
